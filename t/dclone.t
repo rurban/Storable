@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: dclone.t,v 0.6 1998/06/04 16:08:25 ram Exp $
+# $Id: dclone.t,v 0.6 1998/06/04 16:08:25 ram Exp ram $
 #
 #  Copyright (c) 1995-1998, Raphael Manfredi
 #  
@@ -12,7 +12,7 @@
 # Baseline for first beta release.
 #
 
-require 'dump.pl';
+require 't/dump.pl';
 
 use Storable qw(dclone);
 

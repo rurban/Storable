@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: retrieve.t,v 0.6 1998/06/04 16:08:33 ram Exp $
+# $Id: retrieve.t,v 0.6 1998/06/04 16:08:33 ram Exp ram $
 #
 #  Copyright (c) 1995-1998, Raphael Manfredi
 #  
@@ -12,7 +12,7 @@
 # Baseline for first beta release.
 #
 
-require 'dump.pl';
+require 't/dump.pl';
 
 use Storable qw(store retrieve nstore);
 
@@ -26,16 +26,16 @@ $c->{attribute} = 'attrval';
 @a = ('first', '', undef, 3, -4, -3.14159, 456, 4.5,
 	$b, \$a, $a, $c, \$c, \%a);
 
-print "not " unless defined store(\@a, 'store');
+print "not " unless defined store(\@a, 't/store');
 print "ok 1\n";
-print "not " unless defined nstore(\@a, 'nstore');
+print "not " unless defined nstore(\@a, 't/nstore');
 print "ok 2\n";
 
-$root = retrieve('store');
+$root = retrieve('t/store');
 print "not " unless defined $root;
 print "ok 3\n";
 
-$nroot = retrieve('nstore');
+$nroot = retrieve('t/nstore');
 print "not " unless defined $nroot;
 print "ok 4\n";
 
@@ -53,5 +53,5 @@ print "ok 8\n";
 print "not " if length $root->[1];
 print "ok 9\n";
 
-unlink 'store', 'nstore';
+unlink 't/store', 't/nstore';
 

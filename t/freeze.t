@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: freeze.t,v 0.6.1.1 1998/06/12 09:47:08 ram Exp $
+# $Id: freeze.t,v 0.6.1.1 1998/06/12 09:47:08 ram Exp ram $
 #
 #  Copyright (c) 1995-1998, Raphael Manfredi
 #  
@@ -15,7 +15,7 @@
 # Baseline for first beta release.
 #
 
-require 'dump.pl';
+require 't/dump.pl';
 
 use Storable qw(freeze nfreeze thaw);
 
