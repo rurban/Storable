@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: freeze.t,v 0.4.1.1 1997/06/03 07:40:29 ram Exp $
+# $Id: freeze.t,v 0.5 1997/06/10 16:38:41 ram Exp $
 #
 #  Copyright (c) 1995-1997, Raphael Manfredi
 #  
@@ -8,11 +8,8 @@
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: freeze.t,v $
-# Revision 0.4.1.1  1997/06/03  07:40:29  ram
-# patch7: created
-#
-# Revision 0.4  1997/01/15  18:20:13  ram
-# Baseline for fourth netwide alpha release.
+# Revision 0.5  1997/06/10  16:38:41  ram
+# Baseline for fifth alpha release.
 #
 
 require 't/dump.pl';

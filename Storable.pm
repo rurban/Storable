@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.4.1.5 1997/06/03 07:38:44 ram Exp $
+;# $Id: Storable.pm,v 0.5 1997/06/10 16:38:37 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,25 +6,8 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
-;# Revision 0.4.1.5  1997/06/03  07:38:44  ram
-;# patch7: added freeze/thaw interface and dclone
-;#
-;# Revision 0.4.1.4  1997/05/16  08:44:54  ram
-;# patch6: forgot that AutoLoader does not export its own AUTOLOAD
-;# patch6: updated version number
-;#
-;# Revision 0.4.1.3  1997/02/27  15:31:22  ram
-;# patch4: updated version number
-;# patch4: declare VERSION as being used
-;#
-;# Revision 0.4.1.2  1997/02/27  14:57:42  ram
-;# patch3: added VERSION identification
-;#
-;# Revision 0.4.1.1  1997/01/22  14:17:19  ram
-;# patch1: documented new forgive_me variable
-;#
-;# Revision 0.4  1997/01/15  18:20:09  ram
-;# Baseline for fourth netwide alpha release.
+;# Revision 0.5  1997/06/10  16:38:37  ram
+;# Baseline for fifth alpha release.
 ;#
 
 require DynaLoader;
@@ -42,7 +25,7 @@ use AutoLoader;
 use Carp;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.4_07';
+$VERSION = '0.5';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 bootstrap Storable;

@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.4.1.6 1997/06/03 07:39:58 ram Exp $
+ * $Id: Storable.xs,v 0.5 1997/06/10 16:38:38 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,30 +11,8 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
- * Revision 0.4.1.6  1997/06/03  07:39:58  ram
- * patch7: reworked store/retrieve macros to allow memory operations
- * patch7: added the freeze/thaw interface, and dclone as a bonus
- *
- * Revision 0.4.1.5  1997/03/25  10:20:42  ram
- * patch5: empty scalar strings are now "defined" at retrieval time
- *
- * Revision 0.4.1.4  1997/02/27  15:32:05  ram
- * patch4: fixed a typo in the PerlIO_putc remapping
- * patch4: perlIO_read and perlIO_write inverted size/nb_items
- *
- * Revision 0.4.1.3  1997/02/27  14:58:17  ram
- * patch3: allow build with perl5.003, which is ante perlIO time
- *
- * Revision 0.4.1.2  1997/01/22  14:33:57  ram
- * patch2: random code fix to avoid compiler warnings
- *
- * Revision 0.4.1.1  1997/01/22  14:18:17  ram
- * patch1: made 64-bit clean
- * patch1: forgot to update debugging printf to perlio
- * patch1: added forgive_me support
- *
- * Revision 0.4  1997/01/15  18:20:10  ram
- * Baseline for fourth netwide alpha release.
+ * Revision 0.5  1997/06/10  16:38:38  ram
+ * Baseline for fifth alpha release.
  *
  */
 
@@ -126,7 +104,7 @@ struct extendable {
 	char *arena;		/* Will hold hash key strings, resized as needed */
 	STRLEN asiz;		/* Size of aforementionned buffer */
 	char *aptr;			/* Arena pointer, for in-place read/write ops */
-	char *aend;			/* When reading only, first invalid address */
+	char *aend;			/* First invalid address */
 };
 
 /*
@@ -197,6 +175,8 @@ struct extendable membuf;	/* for memory store/retrieve operations */
 	mptr = mbase;						\
 	if (x)								\
 		mend = mbase + x;				\
+	else								\
+		mend = mbase + msiz;			\
 } while (0)
 
 #define MBUF_SIZE()	(mptr - mbase)
@@ -310,7 +290,7 @@ static char *magicstr = "perl-store";	/* Used as a magic number */
 	if (netorder) {					\
 		int y = (int) htonl(x);		\
 		if (!f)						\
-			MBUF_PUTINT(x);			\
+			MBUF_PUTINT(y);			\
 		else if (PerlIO_write(f, &y, sizeof(y)) != sizeof(y))	\
 			return -1;				\
 	} else {						\

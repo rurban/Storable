@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: store.t,v 0.4 1997/01/15 18:20:13 ram Exp $
+# $Id: store.t,v 0.5 1997/06/10 16:38:42 ram Exp $
 #
 #  Copyright (c) 1995-1997, Raphael Manfredi
 #  
@@ -8,8 +8,8 @@
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: store.t,v $
-# Revision 0.4  1997/01/15  18:20:13  ram
-# Baseline for fourth netwide alpha release.
+# Revision 0.5  1997/06/10  16:38:42  ram
+# Baseline for fifth alpha release.
 #
 
 require 't/dump.pl';
