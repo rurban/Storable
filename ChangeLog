@@ -1,3 +1,18 @@
+Fri Jun 12 11:50:04 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Added workaround for persistent LVALUE-ness in perl5.004. All
+	scalars tagged as being an lvalue are handled as if they were
+	not an lvalue at all.  Added test for that LVALUE bug workaround.
+
+	Now handles Perl immortal scalars explicitely, by storing &sv_yes
+	as such, explicitely.
+
+	Retrieval of non-immortal undef cannot be shared. Previous
+	version was over-optimizing by not creating a separate SV for
+	all undefined scalars seen.
+
 Thu Jun  4 17:21:51 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

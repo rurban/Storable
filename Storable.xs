@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.6 1998/06/04 16:08:22 ram Exp $
+ * $Id: Storable.xs,v 0.6.1.1 1998/06/12 09:46:48 ram Exp $
  *
  *  Copyright (c) 1995-1998, Raphael Manfredi
  *  
@@ -11,6 +11,11 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.6.1.1  1998/06/12  09:46:48  ram
+ * patch1: added workaround for persistent LVALUE-ness in perl5.004
+ * patch1: now handles Perl immortal scalars explicitely
+ * patch1: retrieval of non-immortal undef cannot be shared
+ *
  * Revision 0.6  1998/06/04  16:08:22  ram
  * Baseline for first beta release.
  *
@@ -81,7 +86,10 @@
 #define SX_TIED_ARRAY  C(11)  /* Tied array forthcoming */
 #define SX_TIED_HASH   C(12)  /* Tied hash forthcoming */
 #define SX_TIED_SCALAR C(13)  /* Tied scalar forthcoming */
-#define SX_ERROR	C(14)	/* Error */
+#define SX_SV_UNDEF	C(14)	/* Perl's immortal sv_undef */
+#define SX_SV_YES	C(15)	/* Perl's immortal sv_yes */
+#define SX_SV_NO	C(16)	/* Perl's immortal sv_no */
+#define SX_ERROR	C(17)	/* Error */
 
 /*
  * Those are only used to retrieve "old" pre-0.6 binary images.
@@ -475,12 +483,24 @@ SV *sv;
 	IV iv;
 	char *pv;
 	STRLEN len;
+	U32 flags = SvFLAGS(sv);			/* "cc -O" may put it in register */
 
 	TRACEME(("store_scalar (0x%lx)", (unsigned long) sv));
 
-	if (!SvOK(sv)) {
-		TRACEME(("undef"));
-		PUTMARK(SX_UNDEF);
+	/*
+	 * For efficiency, break the SV encapsulation by peaking at the flags
+	 * directly without using the Perl macros to avoid dereferencing
+	 * sv->sv_flags each time we wish to check the flags.
+	 */
+
+	if (!(flags & SVf_OK)) {			/* !SvOK(sv) */
+		if (sv == &sv_undef) {
+			TRACEME(("immortal undef"));
+			PUTMARK(SX_SV_UNDEF);
+		} else {
+			TRACEME(("undef"));
+			PUTMARK(SX_UNDEF);
+		}
 		return 0;
 	}
 
@@ -507,13 +527,32 @@ SV *sv;
 	 * NOTE: instead of using SvNOK(sv), we test for SvNOKp(sv).
 	 * The reason is that when the scalar value is tainted, the SvNOK(sv)
 	 * value is false.
+	 *
+	 * The test for a read-only scalar with both POK and NOK set is meant
+	 * to quickly detect &sv_yes and &sv_no without having to pay the address
+	 * comparison for each scalar we store.
 	 */
 
-	if (SvPOKp(sv)) {				/* String */
+#define SV_MAYBE_IMMORTAL (SVf_READONLY|SVf_POK|SVf_NOK)
+
+	if ((flags & SV_MAYBE_IMMORTAL) == SV_MAYBE_IMMORTAL) {
+		if (sv == &sv_yes) {
+			TRACEME(("immortal yes"));
+			PUTMARK(SX_SV_YES);
+		} else if (sv == &sv_no) {
+			TRACEME(("immortal no"));
+			PUTMARK(SX_SV_NO);
+		} else {
+			pv = SvPV(sv, len);			/* We know it's SvPOK */
+			goto string;				/* Share code below */
+		}
+	} else if (flags & SVp_POK) {		/* SvPOKp(sv) => string */
 		pv = SvPV(sv, len);
 
 		/*
-		 * Will come here from below with pv and len set if double & netorder.
+		 * Will come here from below with pv and len set if double & netorder,
+		 * or from above if it was readonly, POK and NOK but neither &sv_yes
+		 * nor &sv_no.
 		 */
 	string:
 
@@ -521,7 +560,7 @@ SV *sv;
 		TRACEME(("ok (scalar 0x%lx '%s', length = %d)",
 			(unsigned long) sv, SvPVX(sv), len));
 
-	} else if (SvNOKp(sv)) {		/* Double */
+	} else if (flags & SVp_NOK) {		/* SvNOKp(sv) => double */
 		double nv = SvNV(sv);
 
 		/*
@@ -543,7 +582,7 @@ SV *sv;
 
 		TRACEME(("ok (double 0x%lx, value = %lf)", (unsigned long) sv, nv));
 
-	} else if (SvIOKp(sv)) {		/* Integer */
+	} else if (flags & SVp_IOK) {		/* SvIOKp(sv) = > integer */
 		iv = SvIV(sv);
 
 		/*
@@ -978,6 +1017,7 @@ SV *sv;
 		 */
 		return SvROK(sv) ? svis_REF : svis_SCALAR;
 	case SVt_PVMG:
+	case SVt_PVLV:		/* Workaround for perl5.004_04 "LVALUE" bug */
 	case SVt_PVBM:
 		if (SvRMAGICAL(sv) && (mg_find(sv, 'q')))
 			return svis_TIED;
@@ -1607,16 +1647,58 @@ PerlIO *f;
  */
 static SV *retrieve_undef()
 {
-	static SV* sv = 0;
+	SV* sv;
 
 	TRACEME(("retrieve_undef"));
 
-	if (!sv)
-		sv = newSVsv(&sv_undef);
+	sv = newSV(0);
+	SEEN(sv);
 
-	sv = SvREFCNT_inc(sv);
-	tagnum++;				/* Needn't call SEEN, but must still count it */
+	return sv;
+}
 
+/*
+ * retrieve_sv_undef
+ *
+ * Return the immortal undefined value.
+ */
+static SV *retrieve_sv_undef()
+{
+	SV *sv = &sv_undef;
+
+	TRACEME(("retrieve_sv_undef"));
+
+	SEEN(sv);
+	return sv;
+}
+
+/*
+ * retrieve_sv_yes
+ *
+ * Return the immortal yes value.
+ */
+static SV *retrieve_sv_yes()
+{
+	SV *sv = &sv_yes;
+
+	TRACEME(("retrieve_sv_yes"));
+
+	SEEN(sv);
+	return sv;
+}
+
+/*
+ * retrieve_sv_no
+ *
+ * Return the immortal no value.
+ */
+static SV *retrieve_sv_no()
+{
+	SV *sv = &sv_no;
+
+	TRACEME(("retrieve_sv_no"));
+
+	SEEN(sv);
 	return sv;
 }
 
@@ -1929,6 +2011,9 @@ static SV *(*sv_old_retrieve[])() = {
 	retrieve_tied_array,	/* SX_ARRAY */
 	retrieve_tied_hash,		/* SX_HASH */
 	retrieve_tied_scalar,	/* SX_SCALAR */
+	retrieve_other,			/* SX_SV_UNDEF not supported */
+	retrieve_other,			/* SX_SV_YES not supported */
+	retrieve_other,			/* SX_SV_NO not supported */
 	retrieve_other,			/* SX_ERROR */
 };
 
@@ -1947,6 +2032,9 @@ static SV *(*sv_retrieve[])() = {
 	retrieve_tied_array,	/* SX_ARRAY */
 	retrieve_tied_hash,		/* SX_HASH */
 	retrieve_tied_scalar,	/* SX_SCALAR */
+	retrieve_sv_undef,		/* SX_SV_UNDEF */
+	retrieve_sv_yes,		/* SX_SV_YES */
+	retrieve_sv_no,			/* SX_SV_NO */
 	retrieve_other,			/* SX_ERROR */
 };
 

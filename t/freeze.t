@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: freeze.t,v 0.6 1998/06/04 16:08:31 ram Exp $
+# $Id: freeze.t,v 0.6.1.1 1998/06/12 09:47:08 ram Exp $
 #
 #  Copyright (c) 1995-1998, Raphael Manfredi
 #  
@@ -8,6 +8,9 @@
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: freeze.t,v $
+# Revision 0.6.1.1  1998/06/12  09:47:08  ram
+# patch1: added test for the LVALUE bug workaround
+#
 # Revision 0.6  1998/06/04  16:08:31  ram
 # Baseline for first beta release.
 #
@@ -16,7 +19,7 @@ require 't/dump.pl';
 
 use Storable qw(freeze nfreeze thaw);
 
-print "1..14\n";
+print "1..15\n";
 
 $a = 'toto';
 $b = \$a;
@@ -97,4 +100,12 @@ $x = nfreeze($VAR1);
 $VAR2 = thaw($x);
 print "not " unless $VAR2->[3] eq $VAR1->[3];
 print "ok 14\n";
+
+# Test the workaround for LVALUE bug in perl 5.004_04 -- from Gisle Aas
+sub foo { $_[0] = 1 }
+$foo = [];
+foo($foo->[1]);
+eval { freeze($foo) };
+print "not " if $@;
+print "ok 15\n";
 
