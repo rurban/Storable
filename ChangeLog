@@ -1,3 +1,12 @@
+Thu Mar 15 01:22:32 MET 2001   Raphael Manfredi <Raphael_Manfredi@pobox.com>
+
+. Description:
+
+	Last version was wrongly compiling with assertions on, due
+	to an edit glitch.  That did not cause any problem (apart from
+	a slight performance loss) excepted on Win* platforms, where the
+	assertion code does not compile.
+
 Sat Feb 17 13:37:37 MET 2001   Raphael Manfredi <Raphael_Manfredi@pobox.com>
 
 . Description:

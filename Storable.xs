@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 1.0.1.7 2001/02/17 12:25:26 ram Exp $
+ * $Id: Storable.xs,v 1.0.1.8 2001/03/15 00:20:55 ram Exp $
  *
  *  Copyright (c) 1995-2000, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 1.0.1.8  2001/03/15 00:20:55  ram
+ * patch11: last version was wrongly compiling with assertions on
+ *
  * Revision 1.0.1.7  2001/02/17 12:25:26  ram
  * patch8: now bless objects ASAP at retrieve time
  * patch8: added support for blessed ref to tied structures
@@ -113,6 +116,11 @@ typedef double NV;			/* Older perls lack the NV type */
 #endif
 
 #ifdef DEBUGME
+
+#ifndef DASSERT
+#define DASSERT
+#endif
+
 /*
  * TRACEME() will only output things when the $Storable::DEBUGME is true.
  */
@@ -123,11 +131,8 @@ typedef double NV;			/* Older perls lack the NV type */
 } while (0)
 #else
 #define TRACEME(x)
-#endif
+#endif	/* DEBUGME */
 
-#ifndef DASSERT
-#define DASSERT
-#endif
 #ifdef DASSERT
 #define ASSERT(x,y)	do {									\
 	if (!(x)) {												\

@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 1.0.1.9 2001/02/17 12:37:32 ram Exp $
+;# $Id: Storable.pm,v 1.0.1.10 2001/03/15 00:20:25 ram Exp $
 ;#
 ;#  Copyright (c) 1995-2000, Raphael Manfredi
 ;#  
@@ -6,6 +6,9 @@
 ;#  in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 1.0.1.10  2001/03/15 00:20:25  ram
+;# patch11: updated version number
+;#
 ;# Revision 1.0.1.9  2001/02/17 12:37:32  ram
 ;# patch10: forgot to increase version number at previous patch
 ;#
@@ -56,7 +59,7 @@ package Storable; @ISA = qw(Exporter DynaLoader);
 use AutoLoader;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '1.010';
+$VERSION = '1.011';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 #
