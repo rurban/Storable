@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.7 2000/08/03 22:04:44 ram Exp $
+;# $Id: Storable.pm,v 0.7.1.1 2000/08/13 20:08:58 ram Exp $
 ;#
 ;#  Copyright (c) 1995-2000, Raphael Manfredi
 ;#  
@@ -6,6 +6,11 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.7.1.1  2000/08/13 20:08:58  ram
+;# patch1: mention new Clone(3) extension in SEE ALSO
+;# patch1: contributor Marc Lehmann added overloading and ref to tied items
+;# patch1: updated e-mail from Benjamin Holzman
+;#
 ;# Revision 0.7  2000/08/03 22:04:44  ram
 ;# Baseline for second beta release.
 ;#
@@ -24,7 +29,7 @@ package Storable; @ISA = qw(Exporter DynaLoader);
 use AutoLoader;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.700';
+$VERSION = '0.701';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 #
@@ -457,7 +462,7 @@ Returns true if within a retrieve operation, (via STORABLE_thaw hook).
 
 =head2 Recursion
 
-With hooks come the ability to recurse back to the Storable engine.  Indeed,
+With hooks comes the ability to recurse back to the Storable engine.  Indeed,
 hooks are regular Perl code, and Storable is convenient when it comes to
 serialize and deserialize things, so why not use it to handle the
 serialization string?
@@ -494,6 +499,13 @@ and the B part would be serialized by the engine.  In C<STORABLE_thaw>, you
 would get back the reference to the B' object, deserialized for you.
 
 Therefore, recursion should normally be avoided, but is nonetheless supported.
+
+=head2 Deep Cloning
+
+There is a new Clone module available on CPAN which implements deep cloning
+natively, i.e. without freezing to memory and thawing the result.  It is
+aimed to replace Storable's dclone() some day.  However, it does not currently
+support Storable hooks to redefine the way deep cloning is performed.
 
 =head1 EXAMPLES
 
@@ -575,11 +587,12 @@ Thank you to (in chronological order):
 
 	Jarkko Hietaniemi <jhi@iki.fi>
 	Ulrich Pfeifer <pfeifer@charly.informatik.uni-dortmund.de>
-	Benjamin A. Holzman <benjamin.a.holzman@bender.com>
+	Benjamin A. Holzman <bah@ecnvantage.com>
 	Andrew Ford <A.Ford@ford-mason.co.uk>
 	Gisle Aas <gisle@aas.no>
 	Jeff Gresham <gresham_jeffrey@jpmorgan.com>
 	Murray Nesbitt <murray@activestate.com>
+	Marc Lehmann <pcg@opengroup.org>
 
 for their bug reports, suggestions and contributions.
 
@@ -590,7 +603,8 @@ and optimized the emission of "tags" in the output streams by
 simply counting the objects instead of tagging them (leading to
 a binary incompatibility for the Storable image starting at version
 0.6--older images are of course still properly understood).
-Murray Nesbitt made Storable thread-safe.
+Murray Nesbitt made Storable thread-safe.  Marc Lehmann added overloading
+and reference to tied items support.
 
 =head1 TRANSLATIONS
 
@@ -602,4 +616,9 @@ courtesy of Kawai, Takanori <kawai@nippon-rad.co.jp>.
 
 Raphael Manfredi F<E<lt>Raphael_Manfredi@pobox.comE<gt>>
 
+=head1 SEE ALSO
+
+Clone(3).
+
 =cut
+

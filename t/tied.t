@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: tied.t,v 0.7 2000/08/03 22:04:45 ram Exp $
+# $Id: tied.t,v 0.7.1.1 2000/08/13 20:10:27 ram Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
@@ -8,15 +8,19 @@
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: tied.t,v $
+# Revision 0.7.1.1  2000/08/13 20:10:27  ram
+# patch1: added test case for "undef" in hashes
+#
 # Revision 0.7  2000/08/03 22:04:45  ram
 # Baseline for second beta release.
 #
 
 require 't/dump.pl';
+sub ok;
 
 use Storable qw(freeze thaw);
 
-print "1..15\n";
+print "1..22\n";
 
 ($scalar_fetch, $array_fetch, $hash_fetch) = (0, 0, 0);
 
@@ -96,6 +100,23 @@ sub STORE {
 	$$self = $value;
 }
 
+package FAULT;
+
+$fault = 0;
+
+sub TIESCALAR {
+	my $pkg = shift;
+	return bless [@_], $pkg;
+}
+
+sub FETCH {
+	my $self = shift;
+	my ($href, $key) = @$self;
+	$fault++;
+	untie $href->{$key};
+	return $href->{$key} = 1;
+}
+
 package main;
 
 $a = 'toto';
@@ -126,18 +147,16 @@ $array[2] = \@array;
 @a = ('first', 3, -4, -3.14159, 456, 4.5, $d, \$d,
 	$b, \$a, $a, $c, \$c, \%a, \@array, \%hash, \@tied);
 
-print "not " unless defined($f = freeze(\@a));
-print "ok 1\n";
+ok 1, defined($f = freeze(\@a));
 
 $dumped = &dump(\@a);
-print "ok 2\n";
+ok 2, 1;
 
 $root = thaw($f);
-print "not " unless defined $root;
-print "ok 3\n";
+ok 3, defined $root;
 
 $got = &dump($root);
-print "ok 4\n";
+ok 4, 1;
 
 ### Used to see the manifestation of the bug documented above.
 ### print "original: $dumped";
@@ -145,24 +164,19 @@ print "ok 4\n";
 ### print "got: $got";
 ### print "--------\n";
 
-print "not " unless $got eq $dumped; 
-print "ok 5\n";
+ok 5, $got eq $dumped; 
 
 $g = freeze($root);
-print "not " unless length($f) == length($g);
-print "ok 6\n";
+ok 6, length($f) == length($g);
 
 # Ensure the tied items in the retrieved image work
 @old = ($scalar_fetch, $array_fetch, $hash_fetch);
 @tied = ($tscalar, $tarray, $thash) = @{$root->[$#{$root}]};
 @type = qw(SCALAR  ARRAY  HASH);
 
-print "not " unless tied $$tscalar;
-print "ok 7\n";
-print "not " unless tied @{$tarray};
-print "ok 8\n";
-print "not " unless tied %{$thash};
-print "ok 9\n";
+ok 7, tied $$tscalar;
+ok 8, tied @{$tarray};
+ok 9, tied %{$thash};
 
 @new = ($$tscalar, $tarray->[0], $thash->{'attribute'});
 @new = ($scalar_fetch, $array_fetch, $hash_fetch);
@@ -174,4 +188,18 @@ for ($i = 0; $i < @new; $i++) {
 	print "not " unless ref $tied[$i] eq $type[$i];
 	printf "ok %d\n", 11 + 2*$i;	# Tests 11,13,15
 }
+
+# Check undef ties
+my $h = {};
+tie $h->{'x'}, 'FAULT', $h, 'x';
+my $hf = freeze($h);
+ok 16, defined $hf;
+ok 17, $FAULT::fault == 0;
+ok 18, $h->{'x'} == 1;
+ok 19, $FAULT::fault == 1;
+
+my $ht = thaw($hf);
+ok 20, defined $ht;
+ok 21, $ht->{'x'} == 1;
+ok 22, $FAULT::fault == 2;
 

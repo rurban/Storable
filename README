@@ -17,17 +17,18 @@
 +=======================================================================
 |                     PLEASE NOTE CAREFULLY
 |
-|   The serialization format changed between 0.5 and 0.6, and
+|   The serialization format changed between 0.5 and 0.6, and the module
 |   is NOT backward compatible.  Think about it when upgrading from a
-|   pre-0.5@9 version -- images from versions 0.5@9 were still supported
+|   pre-0.5@9 version -- images from versions 0.5@9 could still be read
 |   by 0.6, but have not been tested with 0.7.
 |
 |   The next release (0.8 or 1.0) will DROP support for pre-0.6 format.
 |
-|   The serialization format changed between 0.6 and 0.7, and
-|   is fully backward compatible.  If you encounter a situation where
-|   it is not AND can duplicate it via a small test case, please send
-|   it to me, along with a patch to fix the problem if you can.
+|   The serialization format changed between 0.6 and 0.7, and the module
+|   is fully backward compatible, meaning 0.7 can read binary images from
+|   0.6, although it only generates new ones.  If you encounter a situation
+|   where  it is not AND can duplicate it via a small test case, please
+|   send it to me, along with a patch to fix the problem if you can.
 +=======================================================================
 
 The Storable extension brings persistency to your data.
@@ -64,12 +65,13 @@ Thanks to:
 
     Jarkko Hietaniemi <jhi@iki.fi>
     Ulrich Pfeifer <pfeifer@charly.informatik.uni-dortmund.de>
-    Benjamin A. Holzman <benjamin.a.holzman@bender.com>
+    Benjamin A. Holzman <bah@ecnvantage.com>
     Andrew Ford <A.Ford@ford-mason.co.uk>
     Gisle Aas <gisle@aas.no>
     Jeff Gresham <gresham_jeffrey@jpmorgan.com>
     Murray Nesbitt <murray@activestate.com>
     Albert N. Micheev <Albert.N.Micheev@f80.n5049.z2.fidonet.org>
+    Marc Lehmann <pcg@opengroup.org>
 
 for their contributions.
 

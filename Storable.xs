@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.7 2000/08/03 22:04:44 ram Exp $
+ * $Id: Storable.xs,v 0.7.1.1 2000/08/13 20:10:06 ram Exp $
  *
  *  Copyright (c) 1995-2000, Raphael Manfredi
  *  
@@ -11,6 +11,11 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.7.1.1  2000/08/13 20:10:06  ram
+ * patch1: was wrongly optimizing for "undef" values in hashes
+ * patch1: added support for ref to tied items in hash/array
+ * patch1: added overloading support
+ *
  * Revision 0.7  2000/08/03 22:04:44  ram
  * Baseline for second beta release.
  *
@@ -101,7 +106,10 @@
 #define SX_BLESS	C(17)	/* Object is blessed */
 #define SX_IX_BLESS	C(18)	/* Object is blessed, classname given by index */
 #define SX_HOOK		C(19)	/* Stored via hook, user-defined */
-#define SX_ERROR	C(20)	/* Error */
+#define SX_OVERLOAD	C(20)	/* Overloaded reference */
+#define SX_TIED_KEY C(21)   /* Tied magic key forthcoming */
+#define SX_TIED_IDX C(22)   /* Tied magic index forthcoming */
+#define SX_ERROR	C(23)	/* Error */
 
 /*
  * Those are only used to retrieve "old" pre-0.6 binary images.
@@ -433,12 +441,13 @@ static stcxt_t *Context_ptr = &Context;
  * Possible return values for sv_type().
  */
 
-#define svis_REF	0
-#define svis_SCALAR	1
-#define svis_ARRAY	2
-#define svis_HASH	3
-#define svis_TIED	4
-#define svis_OTHER	5
+#define svis_REF		0
+#define svis_SCALAR		1
+#define svis_ARRAY		2
+#define svis_HASH		3
+#define svis_TIED		4
+#define svis_TIED_ITEM	5
+#define svis_OTHER		6
 
 /*
  * Flags for SX_HOOK.
@@ -480,7 +489,7 @@ static char old_magicstr[] = "perl-store";	/* Magic number before 0.6 */
 static char magicstr[] = "pst0";			/* Used as a magic number */
 
 #define STORABLE_BIN_MAJOR	2				/* Binary major "version" */
-#define STORABLE_BIN_MINOR	0				/* Binary minor "version" */
+#define STORABLE_BIN_MINOR	1				/* Binary minor "version" */
 
 /*
  * Useful store shortcuts...
@@ -1202,7 +1211,7 @@ I32 *classnum;
  * store_ref
  *
  * Store a reference.
- * Layout is SX_REF <object>.
+ * Layout is SX_REF <object> or SX_OVERLOAD <object>.
  */
 static int store_ref(cxt, sv)
 stcxt_t *cxt;
@@ -1210,8 +1219,22 @@ SV *sv;
 {
 	TRACEME(("store_ref (0x%lx)", (unsigned long) sv));
 
-	PUTMARK(SX_REF);
+	/*
+	 * Follow reference, and check if target is overloaded.
+	 */
+
 	sv = SvRV(sv);
+
+	if (SvOBJECT(sv)) {
+		HV *stash = (HV *) SvSTASH(sv);
+		if (stash && Gv_AMG(stash)) {
+			TRACEME(("ref (0x%lx) is overloaded", (unsigned long) sv));
+			PUTMARK(SX_OVERLOAD);
+		} else
+			PUTMARK(SX_REF);
+	} else
+		PUTMARK(SX_REF);
+
 	return store(cxt, sv);
 }
 
@@ -1324,7 +1347,7 @@ SV *sv;
 		if (cxt->netorder) {
 			TRACEME(("double %lf stored as string", nv));
 			pv = SvPV(sv, len);
-			goto string;		/* Share code below */
+			goto string;		/* Share code above */
 		}
 
 		PUTMARK(SX_DOUBLE);
@@ -1521,30 +1544,13 @@ HV *hv;
 				return 1;		/* Internal error, not I/O error */
 			
 			/*
-			 * Store value first, if defined.
+			 * Store value first.
 			 */
 			
-			if (!SvOK(val)) {
-				/*
-				 * If the "undef" has a refcnt greater than one, other parts
-				 * of the structure might reference this, so we cannot call
-				 * STORE_UNDEF(): at retrieval time, we would break the
-				 * relationship.  Thanks to Albert Micheev for exhibiting
-				 * a structure where this bug manifested -- RAM, 02/03/2000.
-				 */
-				if (SvREFCNT(val) == 1) {
-					TRACEME(("undef value"));
-					STORE_UNDEF();
-				} else {
-					TRACEME(("undef value with refcnt=%d", SvREFCNT(val)));
-					if (ret = store(cxt, val))
-						goto out;
-				}
-			} else {
-				TRACEME(("(#%d) value 0x%lx", i, (unsigned long) val));
-				if (ret = store(cxt, val))
-					goto out;
-			}
+			TRACEME(("(#%d) value 0x%lx", i, (unsigned long) val));
+
+			if (ret = store(cxt, val))
+				goto out;
 
 			/*
 			 * Write key string.
@@ -1584,26 +1590,13 @@ HV *hv;
 				return 1;		/* Internal error, not I/O error */
 
 			/*
-			 * Store value first, if defined.
+			 * Store value first.
 			 */
 
-			if (!SvOK(val)) {
-				/*
-				 * See comment above in the "canonical" section.
-				 */
-				if (SvREFCNT(val) == 1) {
-					TRACEME(("undef value"));
-					STORE_UNDEF();
-				} else {
-					TRACEME(("undef value with refcnt=%d", SvREFCNT(val)));
-					if (ret = store(cxt, val))
-						goto out;
-				}
-			} else {
-				TRACEME(("(#%d) value 0x%lx", i, (unsigned long) val));
-				if (ret = store(cxt, val))
-					goto out;
-			}
+			TRACEME(("(#%d) value 0x%lx", i, (unsigned long) val));
+
+			if (ret = store(cxt, val))
+				goto out;
 
 			/*
 			 * Write key string.
@@ -1691,6 +1684,69 @@ SV *sv;
 		return ret;
 
 	TRACEME(("ok (tied)"));
+
+	return 0;
+}
+
+/*
+ * store_tied_item
+ *
+ * Stores a reference to an item within a tied structure:
+ *
+ *  . \$h{key}, stores both the (tied %h) object and 'key'.
+ *  . \$a[idx], stores both the (tied @a) object and 'idx'.
+ *
+ * Layout is therefore either:
+ *     SX_TIED_KEY <object> <key>
+ *     SX_TIED_IDX <object> <index>
+ */
+static int store_tied_item(cxt, sv)
+stcxt_t *cxt;
+SV *sv;
+{
+	MAGIC *mg;
+	int ret;
+
+	TRACEME(("store_tied_item (0x%lx)", (unsigned long) sv));
+
+	if (!(mg = mg_find(sv, 'p')))
+		CROAK(("No magic 'p' found while storing reference to tied item"));
+
+	/*
+	 * We discriminate between \$h{key} and \$a[idx] via mg_ptr.
+	 */
+
+	if (mg->mg_ptr) {
+		TRACEME(("store_tied_item: storing a ref to a tied hash item"));
+		PUTMARK(SX_TIED_KEY);
+		TRACEME(("store_tied_item: storing OBJ 0x%lx",
+			(unsigned long) mg->mg_obj));
+
+		if (ret = store(cxt, mg->mg_obj))
+			return ret;
+
+		TRACEME(("store_tied_item: storing PTR 0x%lx",
+			(unsigned long) mg->mg_ptr));
+
+		if (ret = store(cxt, (SV *) mg->mg_ptr))
+			return ret;
+	} else {
+		I32 idx = mg->mg_len;
+
+		TRACEME(("store_tied_item: storing a ref to a tied array item "));
+		PUTMARK(SX_TIED_IDX);
+		TRACEME(("store_tied_item: storing OBJ 0x%lx",
+			(unsigned long) mg->mg_obj));
+
+		if (ret = store(cxt, mg->mg_obj))
+			return ret;
+
+		TRACEME(("store_tied_item: storing IDX %d", idx));
+
+		WLEN(idx);
+	}
+
+	TRACEME(("ok (tied item)"));
 
 	return 0;
 }
@@ -1828,6 +1884,13 @@ SV *hook;
 	}
 
 	/*
+	 * Get frozen string.
+	 */
+
+	ary = AvARRAY(av);
+	pv = SvPV(ary[0], len2);
+
+	/*
 	 * Allocate a class ID if not already done.
 	 */
 
@@ -1851,7 +1914,6 @@ SV *hook;
 	 * array, for speed.
 	 */
 
-	ary = AvARRAY(av);
 	for (i = 1; i < count; i++) {
 		SV **svh;
 		SV *xsv = ary[i];
@@ -1904,16 +1966,6 @@ SV *hook;
 		TRACEME(("listed object %d at 0x%lx is tag #%d",
 			i-1, (unsigned long) xsv, (I32) *svh));
 	}
-
-	/*
-	 * If the array is empty, they did not return anything.  Handle it
-	 * as if they had returned an empty string.
-	 */
-
-	if (count == 0)
-		len2 = 0;
-	else
-		pv = SvPV(ary[0], len2);
 
 	/*
 	 * Compute leading flags.
@@ -2193,6 +2245,9 @@ SV *sv;
 		return SvROK(sv) ? svis_REF : svis_SCALAR;
 	case SVt_PVMG:
 	case SVt_PVLV:		/* Workaround for perl5.004_04 "LVALUE" bug */
+		if (SvRMAGICAL(sv) && (mg_find(sv, 'p')))
+			return svis_TIED_ITEM;
+		/* FALL THROUGH */
 	case SVt_PVBM:
 		if (SvRMAGICAL(sv) && (mg_find(sv, 'q')))
 			return svis_TIED;
@@ -2216,12 +2271,13 @@ SV *sv;
  * Dynamic dispatching table for SV store.
  */
 static int (*sv_store[])() = {
-	store_ref,		/* svis_REF */
-	store_scalar,	/* svis_SCALAR */
-	store_array,	/* svis_ARRAY */
-	store_hash,		/* svis_HASH */
-	store_tied,		/* svis_TIED */
-	store_other,	/* svis_OTHER */
+	store_ref,			/* svis_REF */
+	store_scalar,		/* svis_SCALAR */
+	store_array,		/* svis_ARRAY */
+	store_hash,			/* svis_HASH */
+	store_tied,			/* svis_TIED */
+	store_tied_item,	/* svis_TIED_ITEM */
+	store_other,		/* svis_OTHER */
 };
 
 /*
@@ -3013,6 +3069,55 @@ stcxt_t *cxt;
 }
 
 /*
+ * retrieve_overloaded
+ *
+ * Retrieve reference to some other scalar with overloading.
+ * Layout is SX_OVERLOAD <object>, with SX_OVERLOAD already read.
+ */
+static SV *retrieve_overloaded(cxt)
+stcxt_t *cxt;
+{
+	SV *rv;
+	SV *sv;
+	HV *stash;
+
+	TRACEME(("retrieve_overloaded (#%d)", cxt->tagnum));
+
+	/*
+	 * Same code as retrieve_ref(), duplicated to avoid extra call.
+	 */
+
+	rv = NEWSV(10002, 0);
+	SEEN(rv);				/* Will return if rv is null */
+	sv = retrieve(cxt);		/* Retrieve <object> */
+	if (!sv)
+		return (SV *) 0;	/* Failed */
+
+	/*
+	 * WARNING: breaks RV encapsulation.
+	 */
+
+	sv_upgrade(rv, SVt_RV);
+	SvRV(rv) = sv;				/* $rv = \$sv */
+	SvROK_on(rv);
+
+	/*
+	 * Restore overloading magic.
+	 */
+
+	stash = (HV *) SvSTASH (sv);
+	if (!stash || !Gv_AMG(stash))
+		CROAK(("Cannot restore overloading on %s(0x%lx)", sv_reftype(sv, FALSE),
+			(unsigned long) sv));
+
+	SvAMAGIC_on(rv);
+
+	TRACEME(("ok (retrieve_overloaded at 0x%lx)", (unsigned long) rv));
+
+	return rv;
+}
+
+/*
  * retrieve_tied_array
  *
  * Retrieve tied array
@@ -3057,7 +3162,7 @@ stcxt_t *cxt;
 	TRACEME(("retrieve_tied_hash (#%d)", cxt->tagnum));
 
 	tv = NEWSV(10002, 0);
-	SEEN(tv);					/* Will return if rv is null */
+	SEEN(tv);					/* Will return if tv is null */
 	sv = retrieve(cxt);			/* Retrieve <object> */
 	if (!sv)
 		return (SV *) 0;		/* Failed */
@@ -3099,6 +3204,69 @@ stcxt_t *cxt;
 
 	return tv;
 }
+
+/*
+ * retrieve_tied_key
+ *
+ * Retrieve reference to value in a tied hash.
+ * Layout is SX_TIED_KEY <object> <key>, with SX_TIED_KEY already read.
+ */
+static SV *retrieve_tied_key(cxt)
+stcxt_t *cxt;
+{
+	SV *tv;
+	SV *sv;
+	SV *key;
+
+	TRACEME(("retrieve_tied_key (#%d)", cxt->tagnum));
+
+	tv = NEWSV(10002, 0);
+	SEEN(tv);					/* Will return if tv is null */
+	sv = retrieve(cxt);			/* Retrieve <object> */
+	if (!sv)
+		return (SV *) 0;		/* Failed */
+
+	key = retrieve(cxt);		/* Retrieve <key> */
+	if (!key)
+		return (SV *) 0;		/* Failed */
+
+	sv_upgrade(tv, SVt_PVMG);
+	sv_magic(tv, sv, 'p', (char *)key, HEf_SVKEY);
+	SvREFCNT_dec(sv);			/* Undo refcnt inc from sv_magic() */
+
+	return tv;
+}
+
+/*
+ * retrieve_tied_idx
+ *
+ * Retrieve reference to value in a tied array.
+ * Layout is SX_TIED_IDX <object> <idx>, with SX_TIED_IDX already read.
+ */
+static SV *retrieve_tied_idx(cxt)
+stcxt_t *cxt;
+{
+	SV *tv;
+	SV *sv;
+	I32 idx;
+
+	TRACEME(("retrieve_tied_idx (#%d)", cxt->tagnum));
+
+	tv = NEWSV(10002, 0);
+	SEEN(tv);					/* Will return if tv is null */
+	sv = retrieve(cxt);			/* Retrieve <object> */
+	if (!sv)
+		return (SV *) 0;		/* Failed */
+
+	RLEN(idx);					/* Retrieve <idx> */
+
+	sv_upgrade(tv, SVt_PVMG);
+	sv_magic(tv, sv, 'p', 0, idx);
+	SvREFCNT_dec(sv);			/* Undo refcnt inc from sv_magic() */
+
+	return tv;
+}
+
 
 /*
  * retrieve_lscalar
@@ -3679,6 +3847,9 @@ static SV *(*sv_old_retrieve[])() = {
 	retrieve_other,			/* SX_BLESS not supported */
 	retrieve_other,			/* SX_IX_BLESS not supported */
 	retrieve_other,			/* SX_HOOK not supported */
+	retrieve_other,			/* SX_OVERLOADED not supported */
+	retrieve_other,			/* SX_TIED_KEY not supported */
+	retrieve_other,			/* SX_TIED_IDX not supported */
 	retrieve_other,			/* SX_ERROR */
 };
 
@@ -3703,6 +3874,9 @@ static SV *(*sv_retrieve[])() = {
 	retrieve_blessed,		/* SX_BLESS */
 	retrieve_idx_blessed,	/* SX_IX_BLESS */
 	retrieve_hook,			/* SX_HOOK */
+	retrieve_overloaded,	/* SX_OVERLOAD */
+	retrieve_tied_key,		/* SX_TIED_KEY */
+	retrieve_tied_idx,		/* SX_TIED_IDX */
 	retrieve_other,			/* SX_ERROR */
 };
 
@@ -4108,10 +4282,37 @@ int optype;
 	 * remains intact, and can be used as a flag.
 	 */
 
-	if (cxt->hseen) {
+	if (cxt->hseen) {			/* Was not handling overloading by then */
 		SV *rv;
 		if (sv_type(sv) == svis_REF && (rv = SvRV(sv)) && SvOBJECT(rv))
 			return sv;
+	}
+
+	/*
+	 * If reference is overloaded, restore behaviour.
+	 *
+	 * NB: minor glitch here: normally, overloaded refs are stored specially
+	 * so that we can croak when behaviour cannot be re-installed, and also
+	 * avoid testing for overloading magic at each reference retrieval.
+	 *
+	 * Unfortunately, the root reference is implicitely stored, so we must
+	 * check for possible overloading now.  Furthermore, if we don't restore
+	 * overloading, we cannot croak as if the original ref was, because we
+	 * have no way to determine whether it was an overloaded ref or not in
+	 * the first place.
+	 *
+	 * It's a pity that overloading magic is attached to the rv, and not to
+	 * the underlying sv as blessing is.
+	 */
+
+	if (SvOBJECT(sv)) {
+		HV *stash = (HV *) SvSTASH (sv);
+		SV *rv = newRV_noinc(sv);
+		if (stash && Gv_AMG(stash)) {
+			SvAMAGIC_on(rv);
+			TRACEME(("restored overloading on root reference"));
+		}
+		return rv;
 	}
 
 	return newRV_noinc(sv);

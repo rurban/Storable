@@ -1,3 +1,21 @@
+Sun Aug 13 22:12:59 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
+
+. Description:
+
+	Marc Lehmann kindly contributed code to add overloading support
+	and to handle references to tied variables.
+
+	Rewrote leading blurb about compatibility to make it clearer what
+	"backward compatibility" is about: when I say 0.7 is backward
+	compatible with 0.6, it means the revision 0.7 can read files
+	produced by 0.6.
+
+	Mention new Clone(3) extension in SEE ALSO.
+
+	Was wrongly optimizing for "undef" values in hashes by not
+	fully recursing: as a result, tied "undef" values were incorrectly
+	serialized.
+
 Sun Jul 30 12:59:17 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
 
 	First revision of Storable 0.7.
