@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.5.1.4 1998/04/09 16:07:23 ram Exp $
+ * $Id: Storable.xs,v 0.5.1.5 1998/04/24 15:03:10 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.5.1.5  1998/04/24  15:03:10  ram
+ * patch7: added support for serialization of tied SVs
+ *
  * Revision 0.5.1.4  1998/04/09  16:07:23  ram
  * patch6: said SvPOK() had changed to SvPOKp(), but that was a lie...
  *
@@ -92,7 +95,10 @@
 #define SX_BYTE		C(8)	/* (signed) byte forthcoming */
 #define SX_NETINT	C(9)	/* Integer in network order forthcoming */
 #define SX_SCALAR	C(10)	/* Scalar (small) forthcoming (length, data) */
-#define SX_ERROR	C(11)	/* Error */
+#define SX_TIED_ARRAY  C(11)  /* Tied array forthcoming */
+#define SX_TIED_HASH   C(12)  /* Tied hash forthcoming */
+#define SX_TIED_SCALAR C(13)  /* Tied scalar forthcoming */
+#define SX_ERROR	C(14)	/* Error */
 #define SX_ITEM		'i'		/* An array item introducer */
 #define SX_IT_UNDEF	'I'		/* Undefined array item */
 #define SX_KEY		'k'		/* An hash key introducer */
@@ -303,7 +309,8 @@ struct extendable membuf;	/* for memory store/retrieve operations */
 #define svis_SCALAR	1
 #define svis_ARRAY	2
 #define svis_HASH	3
-#define svis_OTHER	4
+#define svis_TIED	4
+#define svis_OTHER	5
 
 static char *magicstr = "perl-store";	/* Used as a magic number */
 
@@ -701,6 +708,72 @@ out:
 }
 
 /*
+ * store_tied
+ *
+ * When storing a tied object (be it a tied scalar, array or hash), we lay out
+ * a special mark, followed by the underlying tied object. For instance, when
+ * dealing with a tied hash, we store SX_TIED_HASH <hash object>, where
+ * <hash object> stands for the serialization of the tied hash.
+ */
+static int store_tied(f, sv)
+PerlIO *f;
+SV *sv;
+{
+	MAGIC *mg;
+	int ret = 0;
+	int svt = SvTYPE(sv);
+	char mtype = 'P';
+
+	TRACEME(("store_tied (0x%lx)", (unsigned long) sv));
+
+	/*
+	 * We have a small run-time penalty here because we chose to factorise
+	 * all tieds objects into the same routine, and not have a store_tied_hash,
+	 * a store_tied_array, etc...
+	 *
+	 * Don't use a switch() statement, as most compilers don't optimize that
+	 * well for 2/3 values. An if() else if() cascade is just fine. We put
+	 * tied hashes first, as they are the most likely beasts.
+	 */
+
+	if (svt == SVt_PVHV) {
+		TRACEME(("tied hash"));
+		PUTMARK(SX_TIED_HASH);			/* Introduces tied hash */
+	} else if (svt == SVt_PVAV) {
+		TRACEME(("tied array"));
+		PUTMARK(SX_TIED_ARRAY);			/* Introduces tied array */
+	} else {
+		TRACEME(("tied scalar"));
+		PUTMARK(SX_TIED_SCALAR);		/* Introduces tied scalar */
+		mtype = 'q';
+	}
+
+	if (!(mg = mg_find(sv, mtype)))
+		croak("No magic '%c' found while storing tied %s", mtype,
+			(svt == SVt_PVHV) ? "hash" :
+				(svt == SVt_PVAV) ? "array" : "scalar");
+
+	/*
+	 * The mg->mg_obj found by mg_find() above actually points to the
+	 * underlying tied Perl object implementation. For instance, if the
+	 * original SV was that of a tied array, them mg->mg_obj is an AV.
+	 *
+	 * Note that we store the Perl object as-is. We don't call its FETCH
+	 * method along the way. At retrieval time, we won't call its STORE
+	 * method either, but the tieing magic will be re-installed. In itself,
+	 * that ensure that the tieing semantics are preserved since futher
+	 * accesses on the retrieved object will indeed call the magic methods...
+	 */
+
+	if (ret = store(f, mg->mg_obj))
+		return ret;
+
+	TRACEME(("ok (tied)"));
+
+	return 0;
+}
+
+/*
  * store_other
  *
  * We don't know how to store the item we reached, so return an error condition.
@@ -754,6 +827,7 @@ static int (*sv_store[])() = {
 	store_scalar,	/* svis_SCALAR */
 	store_array,	/* svis_ARRAY */
 	store_hash,		/* svis_HASH */
+	store_tied,		/* svis_TIED */
 	store_other,	/* svis_OTHER */
 };
 
@@ -780,13 +854,16 @@ SV *sv;
 	case SVt_PVNV:
 	case SVt_PVMG:
 	case SVt_PVBM:
-		if (SvROK(sv))
-			return svis_REF;
-		else
-			return svis_SCALAR;
+		if (SvRMAGICAL(sv) && (mg_find(sv, 'q')))
+			return svis_TIED;
+		return SvROK(sv) ? svis_REF : svis_SCALAR;
 	case SVt_PVAV:
+		if (SvRMAGICAL(sv) && (mg_find(sv, 'P')))
+			return svis_TIED;
 		return svis_ARRAY;
 	case SVt_PVHV:
+		if (SvRMAGICAL(sv) && (mg_find(sv, 'P')))
+			return svis_TIED;
 		return svis_HASH;
 	default:
 		break;
@@ -1139,6 +1216,94 @@ stag_t tag;
 	TRACEME(("ok (retrieve_ref at 0x%lx)", (unsigned long) rv));
 
 	return rv;
+}
+
+/*
+ * retrieve_tied_array
+ *
+ * Retrieve tied array
+ * Layout is SX_TIED_ARRAY <object>, with SX_TIED_ARRAY already read.
+ */
+static SV *retrieve_tied_array(f, tag)
+PerlIO *f;
+stag_t tag;
+{
+	SV *tv;
+	SV *sv;
+
+	TRACEME(("retrieve_tied_array (#%d)", tag));
+
+	tv = NEWSV(10002, 0);
+	SEEN(tag, tv);				/* Will return if tv is null */
+	sv = retrieve(f);			/* Retrieve <object> */
+	if (!sv)
+		return (SV *) 0;		/* Failed */
+
+	sv_upgrade(tv, SVt_PVAV);
+	AvREAL_off((AV *)tv);
+	sv_magic(tv, sv, 'P', Nullch, 0);
+
+	TRACEME(("ok (retrieve_tied_array at 0x%lx)", (unsigned long) tv));
+
+	return tv;
+}
+
+/*
+ * retrieve_tied_hash
+ *
+ * Retrieve tied hash
+ * Layout is SX_TIED_HASH <object>, with SX_TIED_HASH already read.
+ */
+static SV *retrieve_tied_hash(f, tag)
+PerlIO *f;
+stag_t tag;
+{
+	SV *tv;
+	SV *sv;
+
+	TRACEME(("retrieve_tied_hash (#%d)", tag));
+
+	tv = NEWSV(10002, 0);
+	SEEN(tag, tv);				/* Will return if rv is null */
+	sv = retrieve(f);			/* Retrieve <object> */
+	if (!sv)
+		return (SV *) 0;		/* Failed */
+
+	sv_upgrade(tv, SVt_PVHV);
+	sv_magic(tv, sv, 'P', Nullch, 0);
+
+	TRACEME(("ok (retrieve_tied_hash at 0x%lx)", (unsigned long) tv));
+
+	return tv;
+}
+
+/*
+ * retrieve_tied_scalar
+ *
+ * Retrieve tied scalar
+ * Layout is SX_TIED_SCALAR <object>, with SX_TIED_SCALAR already read.
+ */
+static SV *retrieve_tied_scalar(f, tag)
+PerlIO *f;
+stag_t tag;
+{
+	SV *tv;
+	SV *sv;
+
+	TRACEME(("retrieve_tied_scalar (#%d)", tag));
+
+	tv = NEWSV(10002, 0);
+	SEEN(tag, tv);				/* Will return if rv is null */
+	sv = retrieve(f);			/* Retrieve <object> */
+	if (!sv)
+		return (SV *) 0;		/* Failed */
+
+	sv_upgrade(tv, SVt_PVMG);
+	sv_magic(tv, sv, 'q', Nullch, 0);
+
+	TRACEME(("ok (retrieve_tied_scalar at 0x%lx)", (unsigned long) tv));
+
+	return tv;
 }
 
 /*
@@ -1534,18 +1699,21 @@ stag_t tag;
  */
 
 static SV *(*sv_retrieve[])() = {
-	0,					/* SX_OBJECT -- entry unused dynamically */
-	retrieve_lscalar,	/* SX_LSCALAR */
-	retrieve_array,		/* SX_ARRAY */
-	retrieve_hash,		/* SX_HASH */
-	retrieve_ref,		/* SX_REF */
-	retrieve_undef,		/* SX_UNDEF */
-	retrieve_integer,	/* SX_INTEGER */
-	retrieve_double,	/* SX_DOUBLE */
-	retrieve_byte,		/* SX_BYTE */
-	retrieve_netint,	/* SX_NETINT */
-	retrieve_scalar,	/* SX_SCALAR */
-	retrieve_other,		/* SX_ERROR */
+	0,						/* SX_OBJECT -- entry unused dynamically */
+	retrieve_lscalar,		/* SX_LSCALAR */
+	retrieve_array,			/* SX_ARRAY */
+	retrieve_hash,			/* SX_HASH */
+	retrieve_ref,			/* SX_REF */
+	retrieve_undef,			/* SX_UNDEF */
+	retrieve_integer,		/* SX_INTEGER */
+	retrieve_double,		/* SX_DOUBLE */
+	retrieve_byte,			/* SX_BYTE */
+	retrieve_netint,		/* SX_NETINT */
+	retrieve_scalar,		/* SX_SCALAR */
+	retrieve_tied_array,	/* SX_ARRAY */
+	retrieve_tied_hash,		/* SX_HASH */
+	retrieve_tied_scalar,	/* SX_SCALAR */
+	retrieve_other,			/* SX_ERROR */
 };
 
 #define RETRIEVE(x)	(*sv_retrieve[(x) >= SX_ERROR ? SX_ERROR : (x)])
@@ -1717,7 +1885,7 @@ PerlIO *f;
 		croak("Magic number checking on perl storable failed");
 
 	seen = newHV();			/* Table where retrieved objects are kept */
-	sv = retrieve(f);		/* Recursively retrieve object, get root SV  */
+	sv = retrieve(f);		/* Recursively retrieve object, get root SV */
 	hv_undef(seen);			/* Free retrieved object table */
 	sv_free((SV *) seen);	/* Free HV */
 

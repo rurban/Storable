@@ -1,3 +1,10 @@
+Tue Jun  3 09:41:33 METDST 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Thanks to a contribution from Benjamin A. Holzman, Storable is now
+	able to correctly serialize tied SVs, i.e. tied arrays, hashes
+	and scalars.
 Thu Apr  9 18:07:51 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

@@ -1,4 +1,4 @@
-;# $Id: dump.pl,v 0.5 1997/06/10 16:38:40 ram Exp $
+;# $Id: dump.pl,v 0.5.1.1 1998/04/24 15:03:51 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,6 +6,9 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: dump.pl,v $
+;# Revision 0.5.1.1  1998/04/24  15:03:51  ram
+;# patch7: must allocate object count before recursing
+;#
 ;# Revision 0.5  1997/06/10  16:38:40  ram
 ;# Baseline for fifth alpha release.
 ;#
@@ -64,16 +67,19 @@ sub recursive_dump {
 		return;
 	}
 
+	my $objcount = $count++;
+	$object{$addr} = $objcount;
+
 	# Call the appropriate dumping routine based on the reference type.
 	# If the referenced was blessed, we bless it once the object is dumped.
 	# The retrieval code will perform the same on the last object retrieved.
 
 	croak "Unknown simple type '$ref'" unless defined $dump{$ref};
+
 	&{$dump{$ref}}($object);	# Dump object
 	&bless($bless) if $bless;	# Mark it as blessed, if necessary
 
-	$dumped .= "OBJECT $count\n";
-	$object{$addr} = $count++;
+	$dumped .= "OBJECT $objcount\n";
 }
 
 # Indicate that current object is blessed

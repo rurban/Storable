@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: freeze.t,v 0.5.1.1 1997/11/05 09:51:56 ram Exp $
+# $Id: freeze.t,v 0.5.1.2 1998/04/24 15:04:07 ram Exp $
 #
 #  Copyright (c) 1995-1997, Raphael Manfredi
 #  
@@ -8,6 +8,9 @@
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: freeze.t,v $
+# Revision 0.5.1.2  1998/04/24  15:04:07  ram
+# patch7: complexified data structure being frozen
+#
 # Revision 0.5.1.1  1997/11/05  09:51:56  ram
 # patch1: added regression test for "Allocation too large"
 #
@@ -24,9 +27,13 @@ print "1..14\n";
 $a = 'toto';
 $b = \$a;
 $c = bless {}, CLASS;
-$c->{attribute} = 'attrval';
+$c->{attribute} = $b;
+$d = {};
+$e = [];
+$d->{'a'} = $e;
+$e->[0] = $d;
 %a = ('key', 'value', 1, 0, $a, $b, 'cvar', \$c);
-@a = ('first', undef, 3, -4, -3.14159, 456, 4.5,
+@a = ('first', undef, 3, -4, -3.14159, 456, 4.5, $d, \$d, \$e, $e,
 	$b, \$a, $a, $c, \$c, \%a);
 
 print "not " unless defined ($f1 = freeze(\@a));
