@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.6.1.3 1998/07/03 11:36:09 ram Exp $
+ * $Id: Storable.xs,v 0.6.1.4 1999/07/12 12:37:01 ram Exp $
  *
  *  Copyright (c) 1995-1998, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.6.1.4  1999/07/12  12:37:01  ram
+ * patch4: uses new internal PL_* naming convention.
+ *
  * Revision 0.6.1.3  1998/07/03  11:36:09  ram
  * patch3: fixed compatibility (wrt 0.5@9) for retrieval of blessed refs
  * patch3: increased store() throughput significantly
@@ -56,6 +59,11 @@
 #ifndef newRV_noinc
 #define newRV_noinc(sv)		((Sv = newRV(sv)), --SvREFCNT(SvRV(Sv)), Sv)
 #endif
+#ifndef ERRSV				/* Detects older perls (<= 5.004) */
+#define PL_sv_yes	sv_yes
+#define PL_sv_no	sv_no
+#define PL_sv_undef	sv_undef
+#endif
 #ifndef HvSHAREKEYS_off
 #define HvSHAREKEYS_off(hv)	/* Ignore */
 #endif
@@ -96,9 +104,9 @@
 #define SX_TIED_ARRAY  C(11)  /* Tied array forthcoming */
 #define SX_TIED_HASH   C(12)  /* Tied hash forthcoming */
 #define SX_TIED_SCALAR C(13)  /* Tied scalar forthcoming */
-#define SX_SV_UNDEF	C(14)	/* Perl's immortal sv_undef */
-#define SX_SV_YES	C(15)	/* Perl's immortal sv_yes */
-#define SX_SV_NO	C(16)	/* Perl's immortal sv_no */
+#define SX_SV_UNDEF	C(14)	/* Perl's immortal PL_sv_undef */
+#define SX_SV_YES	C(15)	/* Perl's immortal PL_sv_yes */
+#define SX_SV_NO	C(16)	/* Perl's immortal PL_sv_no */
 #define SX_ERROR	C(17)	/* Error */
 
 /*
@@ -370,7 +378,7 @@ static char magicstr[] = "pst0";			/* Used as a magic number */
 	} while (0)
 
 #define STORE_SCALAR(pv, len) do {		\
-	if (len < LG_SCALAR) {				\
+	if (len <= LG_SCALAR) {				\
 		unsigned char clen = (unsigned char) len;	\
 		PUTMARK(SX_SCALAR);				\
 		PUTMARK(clen);					\
@@ -504,7 +512,7 @@ SV *sv;
 	 */
 
 	if (!(flags & SVf_OK)) {			/* !SvOK(sv) */
-		if (sv == &sv_undef) {
+		if (sv == &PL_sv_undef) {
 			TRACEME(("immortal undef"));
 			PUTMARK(SX_SV_UNDEF);
 		} else {
@@ -539,17 +547,17 @@ SV *sv;
 	 * value is false.
 	 *
 	 * The test for a read-only scalar with both POK and NOK set is meant
-	 * to quickly detect &sv_yes and &sv_no without having to pay the address
-	 * comparison for each scalar we store.
+	 * to quickly detect &PL_sv_yes and &PL_sv_no without having to pay the
+	 * address comparison for each scalar we store.
 	 */
 
 #define SV_MAYBE_IMMORTAL (SVf_READONLY|SVf_POK|SVf_NOK)
 
 	if ((flags & SV_MAYBE_IMMORTAL) == SV_MAYBE_IMMORTAL) {
-		if (sv == &sv_yes) {
+		if (sv == &PL_sv_yes) {
 			TRACEME(("immortal yes"));
 			PUTMARK(SX_SV_YES);
-		} else if (sv == &sv_no) {
+		} else if (sv == &PL_sv_no) {
 			TRACEME(("immortal no"));
 			PUTMARK(SX_SV_NO);
 		} else {
@@ -561,8 +569,8 @@ SV *sv;
 
 		/*
 		 * Will come here from below with pv and len set if double & netorder,
-		 * or from above if it was readonly, POK and NOK but neither &sv_yes
-		 * nor &sv_no.
+		 * or from above if it was readonly, POK and NOK but neither &PL_sv_yes
+		 * nor &PL_sv_no.
 		 */
 	string:
 
@@ -1271,7 +1279,7 @@ int use_network_order;
 
 		hv_iterinit(hseen);
 		while (he = hv_iternext(hseen))
-			HeVAL(he) = &sv_undef;
+			HeVAL(he) = &PL_sv_undef;
 	}
 	hv_undef(hseen);		/* Free seen object table */
 	sv_free((SV *) hseen);	/* Free HV */
@@ -1303,7 +1311,7 @@ SV *sv;
 	TRACEME(("mstore"));
 	MBUF_INIT(0);
 	if (!do_store(0, sv, FALSE))		/* Not in network order */
-		return &sv_undef;
+		return &PL_sv_undef;
 
 	return mbuf2sv();
 }
@@ -1320,7 +1328,7 @@ SV *sv;
 	TRACEME(("net_mstore"));
 	MBUF_INIT(0);
 	if (!do_store(0, sv, TRUE))	/* Use network order */
-		return &sv_undef;
+		return &PL_sv_undef;
 
 	return mbuf2sv();
 }
@@ -1727,7 +1735,7 @@ static SV *retrieve_undef()
  */
 static SV *retrieve_sv_undef()
 {
-	SV *sv = &sv_undef;
+	SV *sv = &PL_sv_undef;
 
 	TRACEME(("retrieve_sv_undef"));
 
@@ -1742,7 +1750,7 @@ static SV *retrieve_sv_undef()
  */
 static SV *retrieve_sv_yes()
 {
-	SV *sv = &sv_yes;
+	SV *sv = &PL_sv_yes;
 
 	TRACEME(("retrieve_sv_yes"));
 
@@ -1757,7 +1765,7 @@ static SV *retrieve_sv_yes()
  */
 static SV *retrieve_sv_no()
 {
-	SV *sv = &sv_no;
+	SV *sv = &PL_sv_no;
 
 	TRACEME(("retrieve_sv_no"));
 
@@ -2010,12 +2018,12 @@ PerlIO *f;
 		if (c == SX_VL_UNDEF) {
 			TRACEME(("(#%d) undef value", i));
 			/*
-			 * Due to a bug in hv_store(), it's not possible to pass &sv_undef
-			 * to hv_store() as a value, otherwise the associated key will
-			 * not be creatable any more. -- RAM, 14/01/97
+			 * Due to a bug in hv_store(), it's not possible to pass
+			 * &PL_sv_undef to hv_store() as a value, otherwise the
+			 * associated key will not be creatable any more. -- RAM, 14/01/97
 			 */
 			if (!sv_h_undef)
-				sv_h_undef = newSVsv(&sv_undef);
+				sv_h_undef = newSVsv(&PL_sv_undef);
 			sv = SvREFCNT_inc(sv_h_undef);
 		} else if (c == SX_VALUE) {
 			TRACEME(("(#%d) value", i));
@@ -2101,7 +2109,7 @@ static SV *(*sv_retrieve[])() = {
 	retrieve_other,			/* SX_ERROR */
 };
 
-static SV *(**sv_retrieve_vtbl)();	/* One of the above -- XXX for threads*/
+static SV *(**sv_retrieve_vtbl)();	/* One of the above -- XXX for threads */
 
 #define RETRIEVE(x)	(*sv_retrieve_vtbl[(x) >= SX_ERROR ? SX_ERROR : (x)])
 
@@ -2111,7 +2119,7 @@ static SV *(**sv_retrieve_vtbl)();	/* One of the above -- XXX for threads*/
  * Make sure the stored data we're trying to retrieve has been produced
  * on an ILP compatible system with the same byteorder. It croaks out in
  * case an error is detected. [ILP = integer-long-pointer sizes]
- * Returns null if error is detected, &sv_undef otherwise.
+ * Returns null if error is detected, &PL_sv_undef otherwise.
  *
  * Note that there's no byte ordering info emitted when network order was
  * used at store time.
@@ -2165,7 +2173,7 @@ magic_ok:
 	TRACEME(("binary image version is %d", version));
 
 	if (netorder = (use_network_order & 0x1))
-		return &sv_undef;				/* No byte ordering info */
+		return &PL_sv_undef;			/* No byte ordering info */
 
 	sprintf(byteorder, "%lx", (unsigned long) BYTEORDER);
 	GETMARK(c);
@@ -2187,7 +2195,7 @@ magic_ok:
 	if ((int) c != sizeof(char *))
 		croak("Pointer integer size is not compatible");
 
-	return &sv_undef;	/* OK */
+	return &PL_sv_undef;	/* OK */
 }
 
 /*
@@ -2360,6 +2368,8 @@ PerlIO *f;
 	if (!magic_check(f))
 		croak("Magic number checking on perl storable failed");
 
+	TRACEME(("data stored in %s format", netorder ? "net order" : "native"));
+
 	/*
 	 * If retrieving an old binary version, the sv_retrieve_vtbl variable is
 	 * set to sv_old_retrieve. We'll need a hash table to keep track of
@@ -2380,7 +2390,7 @@ PerlIO *f;
 
 	if (!sv) {
 		TRACEME(("retrieve ERROR"));
-		return &sv_undef;	/* Something went wrong, return undef */
+		return &PL_sv_undef;	/* Something went wrong, return undef */
 	}
 
 	TRACEME(("retrieve got %s(0x%lx)",
@@ -2455,7 +2465,7 @@ SV *sv;
 
 	MBUF_INIT(0);
 	if (!do_store(0, sv, FALSE))		/* Not in network order! */
-		return &sv_undef;				/* Error during store */
+		return &PL_sv_undef;			/* Error during store */
 
 	size = MBUF_SIZE();
 	TRACEME(("dclone stored %d bytes", size));
