@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 0.3 1997/01/14 14:57:42 ram Exp $
+# $Id: Makefile.PL,v 0.4 1997/01/15 18:20:09 ram Exp $
 #
 #  Copyright (c) 1995-1997, Raphael Manfredi
 #  
@@ -6,14 +6,14 @@
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: Makefile.PL,v $
-# Revision 0.3  1997/01/14  14:57:42  ram
-# Baseline for third netwide alpha release.
+# Revision 0.4  1997/01/15  18:20:09  ram
+# Baseline for fourth netwide alpha release.
 #
 
 use ExtUtils::MakeMaker;
 use Config;
 
-$Version = '0.3';
+$Version = '0.4';
 
 WriteMakefile(
     'NAME'     => 'Storable',

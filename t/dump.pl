@@ -1,4 +1,4 @@
-;# $Id: dump.pl,v 0.3 1997/01/14 14:57:46 ram Exp $
+;# $Id: dump.pl,v 0.4 1997/01/15 18:20:11 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,8 +6,8 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: dump.pl,v $
-;# Revision 0.3  1997/01/14  14:57:46  ram
-;# Baseline for third netwide alpha release.
+;# Revision 0.4  1997/01/15  18:20:11  ram
+;# Baseline for fourth netwide alpha release.
 ;#
 
 package dump;

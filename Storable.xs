@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.3 1997/01/14 14:57:45 ram Exp $
+ * $Id: Storable.xs,v 0.4 1997/01/15 18:20:10 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,16 +11,14 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
- * Revision 0.3  1997/01/14  14:57:45  ram
- * Baseline for third netwide alpha release.
+ * Revision 0.4  1997/01/15  18:20:10  ram
+ * Baseline for fourth netwide alpha release.
  *
  */
 
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
-
-#include "config.h"
 
 /*#define DEBUGME /* Debug mode, turns assertions on as well */
 /*#define DASSERT /* Assertion mode */
@@ -47,7 +45,7 @@
 #define C(x) ((char) (x))	/* For markers with dynamic retrieval handling */
 
 #define SX_OBJECT	C(0)	/* Already stored object */
-#define SX_SCALAR	C(1)	/* Scalar (string) forthcoming (length, data) */
+#define SX_LSCALAR	C(1)	/* Scalar (string) forthcoming (length, data) */
 #define SX_ARRAY	C(2)	/* Array forthcominng (size, item list) */
 #define SX_HASH		C(3)	/* Hash forthcoming (size, key/value pair list) */
 #define SX_REF		C(4)	/* Reference to object forthcoming */
@@ -56,7 +54,8 @@
 #define SX_DOUBLE	C(7)	/* Double forthcoming */
 #define SX_BYTE		C(8)	/* (signed) byte forthcoming */
 #define SX_NETINT	C(9)	/* Integer in network order forthcoming */
-#define SX_ERROR	C(10)	/* Error */
+#define SX_SCALAR	C(10)	/* Scalar (small) forthcoming (length, data) */
+#define SX_ERROR	C(11)	/* Error */
 #define SX_ITEM		'i'		/* An array item introducer */
 #define SX_IT_UNDEF	'I'		/* Undefined array item */
 #define SX_KEY		'k'		/* An hash key introducer */
@@ -72,6 +71,7 @@
 #define SX_STORED	'X'		/* End of object */
 
 #define LG_BLESS	255		/* Large blessing classname length limit */
+#define LG_SCALAR	255		/* Large scalar length limit */
 
 /*
  * At store time:
@@ -127,71 +127,71 @@ static char *magicstr = "perl-store";	/* Used as a magic number */
  * Useful store shortcuts...
  */
 #define PUTMARK(x) do {				\
-	if (fputc(x, f) == EOF)	\
+	if (PerlIO_putc(f, x) == EOF)	\
 		return -1;					\
 	} while (0)
 
 #ifdef HAS_HTONL
-#define WLEN(x)	do {								\
-	if (netorder) {									\
-		int y = (int) htonl(x);						\
-		if (fwrite(&y, sizeof(y), 1, f) != 1)		\
-			return -1;								\
-	} else if (fwrite(&x, sizeof(x), 1, f) != 1)	\
-		return -1;									\
+#define WLEN(x)	do {				\
+	if (netorder) {					\
+		int y = (int) htonl(x);		\
+		if (PerlIO_write(f, &y, sizeof(y)) != sizeof(y))	\
+			return -1;				\
+	} else if (PerlIO_write(f, &x, sizeof(x)) != sizeof(y))	\
+		return -1;					\
 	} while (0)
 #else
-#define WLEN(x)	do {								\
-	if (fwrite(&x, sizeof(x), 1, f) != 1)			\
-		return -1;									\
+#define WLEN(x)	do {				\
+	if (PerlIO_write(f, &x, sizeof(x)) != sizeof(x))	\
+		return -1;					\
 	} while (0)
 #endif
 
-#define WRITE(x,y) do {				\
-	if (fwrite(x, y, 1, f) != 1)	\
-		return -1;					\
+#define WRITE(x,y) do {					\
+	if (PerlIO_write(f, x, y) != y)		\
+		return -1;						\
 	} while (0)
 
 /*
  * Useful retrieve shortcuts...
  */
-#define GETMARK(x) do {				\
-	if ((x = fgetc(f)) == EOF)		\
-		return (SV *) 0;			\
+#define GETMARK(x) do {						\
+	if ((x = PerlIO_getc(f)) == EOF)		\
+		return (SV *) 0;					\
 	} while (0)
 
 #ifdef HAS_NTOHL
-#define RLEN(x)	do {						\
-	if (fread(&x, sizeof(x), 1, f) != 1)	\
-		return (SV *) 0;					\
-	if (netorder)							\
-		x = (int) ntohl(x);					\
+#define RLEN(x)	do {					\
+	if (PerlIO_read(f, &x, sizeof(x)) != sizeof(x))		\
+		return (SV *) 0;				\
+	if (netorder)						\
+		x = (int) ntohl(x);				\
 	} while (0)
 #else
-#define RLEN(x)	do {						\
-	if (fread(&x, sizeof(x), 1, f) != 1)	\
-		return (SV *) 0;					\
+#define RLEN(x)	do {					\
+	if (PerlIO_read(f, &x, sizeof(x)) != sizeof(x))		\
+		return (SV *) 0;				\
 	} while (0)
 #endif
 
-#define READ(x,y) do {			\
-	if (fread(x, y, 1, f) != 1)	\
-		return (SV *) 0;		\
+#define READ(x,y) do {					\
+	if (PerlIO_read(f, x, y) != y)		\
+		return (SV *) 0;				\
 	} while (0)
 
-#define SAFEREAD(x,y,z) do { 		\
-	if (fread(x, y, 1, f) != 1) {	\
-		sv_free(z);					\
-		return (SV *) 0;			\
+#define SAFEREAD(x,y,z) do { 				\
+	if (PerlIO_read(f, x, y) != y)	 {		\
+		sv_free(z);							\
+		return (SV *) 0;					\
 	}} while (0)
 
-#define SEEN(x,y) do {			\
-	if (!y)						\
-		return (SV *) 0;		\
+#define SEEN(x,y) do {						\
+	if (!y)									\
+		return (SV *) 0;					\
 	ASSERT(!hv_fetch(seen, (char *) &x, sizeof(x), FALSE),	\
 		("*** ALREADY SEEN 0x%lx ***", (unsigned long) x));	\
 	if (hv_store(seen, (char *) &x, sizeof(x), SvREFCNT_inc(y), 0) == 0) \
-		return (SV *) 0;		\
+		return (SV *) 0;					\
 	TRACEME(("seen(0x%lx) = 0x%lx (refcnt=%d)", (unsigned long) x, \
 		(unsigned long) y, SvREFCNT(y)-1)); \
 	} while (0)
@@ -206,7 +206,7 @@ static SV *retrieve();
  * Layout is SX_REF <object>.
  */
 static int store_ref(f, sv)
-FILE *f;
+PerlIO *f;
 SV *sv;
 {
 	TRACEME(("store_ref (0x%lx)", (unsigned long) sv));
@@ -221,14 +221,14 @@ SV *sv;
  *
  * Store a scalar.
  *
- * Layout is SX_SCALAR <length> <data> or SX_UNDEF.
+ * Layout is SX_LSCALAR <length> <data>, SX_SCALAR <lenght> <data> or SX_UNDEF.
  * The <data> section is omitted if <length> is 0.
  *
  * If integer or double, the layout is SX_INTEGER <data> or SX_DOUBLE <data>.
  * Small integers (within [-127, +127]) are stored as SX_BYTE <byte>.
  */
 static int store_scalar(f, sv)
-FILE *f;
+PerlIO *f;
 SV *sv;
 {
 	IV iv;
@@ -317,10 +317,18 @@ SV *sv;
 		 */
 	string:
 
-		PUTMARK(SX_SCALAR);
-		WLEN(len);
-		if (len)
+		if (len < LG_SCALAR) {
+			unsigned char clen = (unsigned char) len;
+			PUTMARK(SX_SCALAR);		/* short scalar */
+			PUTMARK(clen);
+			if (len)
+				WRITE(pv, len);
+		} else {
+			PUTMARK(SX_LSCALAR);	/* long scalar */
+			WLEN(len);
 			WRITE(pv, len);
+		}
+
 		TRACEME(("ok (scalar 0x%lx, length = %d)", (unsigned long) sv, len));
 
 	} else
@@ -339,7 +347,7 @@ SV *sv;
  * Each item is stored as SX_ITEM <object> or SX_IT_UNDEF for "holes".
  */
 static int store_array(f, av)
-FILE *f;
+PerlIO *f;
 AV *av;
 {
 	SV **sav;
@@ -390,7 +398,7 @@ AV *av;
  * if length is 0.
  */
 static int store_hash(f, hv)
-FILE *f;
+PerlIO *f;
 HV *hv;
 {
 	I32 len = HvKEYS(hv);
@@ -473,7 +481,7 @@ out:
  * (it's probably a GLOB, some CODE reference, etc...)
  */
 static int store_other(f, sv)
-FILE *f;
+PerlIO *f;
 SV *sv;
 {
 	TRACEME(("store_other"));
@@ -551,7 +559,7 @@ SV *sv;
  * forms a stored <object>.
  */
 static int store(f, sv)
-FILE *f;
+PerlIO *f;
 SV *sv;
 {
 	SV **svh;
@@ -643,7 +651,7 @@ SV *sv;
  * integers will be emitted in network order in that case.
  */
 static int magic_write(f, use_network_order)
-FILE *f;
+PerlIO *f;
 {
 	char buf[256];	/* Enough room for 256 hexa digits */
 	unsigned char c;
@@ -679,7 +687,7 @@ FILE *f;
  * Common code for pstore() and net_pstore().
  */
 static int do_store(f, sv, use_network_order)
-FILE *f;
+PerlIO *f;
 SV *sv;
 {
 	int status;
@@ -721,7 +729,7 @@ SV *sv;
  * Returns 0 on error, a true value otherwise.
  */
 int pstore(f, sv)
-FILE *f;
+PerlIO *f;
 SV *sv;
 {
 	TRACEME(("pstore"));
@@ -736,7 +744,7 @@ SV *sv;
  * emitted as strings.
  */
 int net_pstore(f, sv)
-FILE *f;
+PerlIO *f;
 SV *sv;
 {
 	TRACEME(("net_pstore"));
@@ -750,7 +758,7 @@ SV *sv;
  * Layout is SX_REF <object>, with SX_REF already read.
  */
 static SV *retrieve_ref(f, addr)
-FILE *f;
+PerlIO *f;
 char *addr;
 {
 	SV *rv;
@@ -800,18 +808,67 @@ char *addr;
 }
 
 /*
- * retrieve_scalar
+ * retrieve_lscalar
  *
- * Retrieve defined (string) scalar.
+ * Retrieve defined long (string) scalar.
  *
- * Layout is SX_SCALAR <length> <data>, with SX_SCALAR already read.
- * The <data> section is omitted if <length> is 0.
+ * Layout is SX_LSCALAR <length> <data>, with SX_LSCALAR already read.
+ * The scalar is "long" in that <length> is larger than LG_SCALAR so it
+ * was not stored on a single byte.
  */
-static SV *retrieve_scalar(f, addr)
-FILE *f;
+static SV *retrieve_lscalar(f, addr)
+PerlIO *f;
 char *addr;
 {
 	STRLEN len;
+	SV *sv;
+	char *buf;
+
+	TRACEME(("retrieve_lscalar (0x%lx)", (unsigned long) addr));
+
+	/*
+	 * Allocate an empty scalar of the suitable length.
+	 */
+
+	RLEN(len);
+	sv = NEWSV(10002, len);
+	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
+
+	/*
+	 * WARNING: duplicates parts of sv_setpv and breaks SV data encapsulation.
+	 *
+	 * Now, for efficiency reasons, read data directly inside the SV buffer,
+	 * and perform the SV final settings directly by duplicating the final
+	 * work done by sv_setpv. Since we're going to allocate lots of scalars
+	 * this way, it's worth the hassle and risk.
+	 */
+
+	SAFEREAD(SvPVX(sv), len, sv);
+	SvCUR_set(sv, len);				/* Record C string length */
+	*SvEND(sv) = '\0';				/* Ensure it's null terminated anyway */
+	(void) SvPOK_only(sv);			/* Validate string pointer */
+	SvTAINT(sv);					/* External data cannot be trusted */
+
+	TRACEME(("large scalar len %d '%s'", len, SvPVX(sv)));
+	TRACEME(("ok (retrieve_lscalar at 0x%lx)", (unsigned long) sv));
+
+	return sv;
+}
+
+/*
+ * retrieve_scalar
+ *
+ * Retrieve defined short (string) scalar.
+ *
+ * Layout is SX_SCALAR <length> <data>, with SX_SCALAR already read.
+ * The scalar is "short" so <length> is single byte. If it is 0, there
+ * is no <data> section.
+ */
+static SV *retrieve_scalar(f, addr)
+PerlIO *f;
+char *addr;
+{
+	int len;
 	SV *sv;
 	char *buf;
 
@@ -821,7 +878,7 @@ char *addr;
 	 * Allocate an empty scalar of the suitable length.
 	 */
 
-	RLEN(len);
+	GETMARK(len);
 	sv = NEWSV(10002, len);
 	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
 
@@ -845,12 +902,11 @@ char *addr;
 	(void) SvPOK_only(sv);			/* Validate string pointer */
 	SvTAINT(sv);					/* External data cannot be trusted */
 
-	TRACEME(("scalar len %d '%s'", len, SvPVX(sv)));
+	TRACEME(("small scalar len %d '%s'", len, SvPVX(sv)));
 	TRACEME(("ok (retrieve_scalar at 0x%lx)", (unsigned long) sv));
 
 	return sv;
 }
-
 /*
  * retrieve_integer
  *
@@ -858,7 +914,7 @@ char *addr;
  * Layout is SX_INTEGER <data>, whith SX_INTEGER already read.
  */
 static SV *retrieve_integer(f, addr)
-FILE *f;
+PerlIO *f;
 char *addr;
 {
 	SV *sv;
@@ -883,7 +939,7 @@ char *addr;
  * Layout is SX_NETINT <data>, whith SX_NETINT already read.
  */
 static SV *retrieve_netint(f, addr)
-FILE *f;
+PerlIO *f;
 char *addr;
 {
 	SV *sv;
@@ -913,7 +969,7 @@ char *addr;
  * Layout is SX_DOUBLE <data>, whith SX_DOUBLE already read.
  */
 static SV *retrieve_double(f, addr)
-FILE *f;
+PerlIO *f;
 char *addr;
 {
 	SV *sv;
@@ -938,7 +994,7 @@ char *addr;
  * Layout is SX_DOUBLE <data>, whith SX_DOUBLE already read.
  */
 static SV *retrieve_byte(f, addr)
-FILE *f;
+PerlIO *f;
 char *addr;
 {
 	SV *sv;
@@ -988,7 +1044,7 @@ static SV *retrieve_other()
  * When we come here, SX_ARRAY has been read already.
  */
 static SV *retrieve_array(f, addr)
-FILE *f;
+PerlIO *f;
 char *addr;
 {
 	I32 len;
@@ -1049,7 +1105,7 @@ char *addr;
  * When we come here, SX_HASH has been read already.
  */
 static SV *retrieve_hash(f, addr)
-FILE *f;
+PerlIO *f;
 char *addr;
 {
 	I32 len;
@@ -1137,7 +1193,7 @@ char *addr;
 
 static SV *(*sv_retrieve[])() = {
 	0,					/* SX_OBJECT -- entry unused dynamically */
-	retrieve_scalar,	/* SX_SCALAR */
+	retrieve_lscalar,	/* SX_LSCALAR */
 	retrieve_array,		/* SX_ARRAY */
 	retrieve_hash,		/* SX_HASH */
 	retrieve_ref,		/* SX_REF */
@@ -1146,6 +1202,7 @@ static SV *(*sv_retrieve[])() = {
 	retrieve_double,	/* SX_DOUBLE */
 	retrieve_byte,		/* SX_BYTE */
 	retrieve_netint,	/* SX_NETINT */
+	retrieve_scalar,	/* SX_SCALAR */
 	retrieve_other,		/* SX_ERROR */
 };
 
@@ -1163,7 +1220,7 @@ static SV *(*sv_retrieve[])() = {
  * used at store time.
  */
 static SV *magic_check(f)
-FILE *f;
+PerlIO *f;
 {
 	char buf[256];
 	char byteorder[256];
@@ -1212,7 +1269,7 @@ FILE *f;
  * Returns null if there is a problem.
  */
 static SV *retrieve(f)
-FILE *f;
+PerlIO *f;
 {
 	char *addr;
 	int type;
@@ -1261,7 +1318,7 @@ FILE *f;
 	 * hash table key retrieval.
 	 */
 
-	while ((type = fgetc(f)) != SX_STORED) {
+	while ((type = PerlIO_getc(f)) != SX_STORED) {
 		I32 len;
 		HV *stash;
 		switch (type) {
@@ -1296,7 +1353,7 @@ FILE *f;
  * Retrieve data held in file and return the root object.
  */
 SV *pretrieve(f)
-FILE *f;
+PerlIO *f;
 {
 	SV *sv;
 
