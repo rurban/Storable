@@ -1,13 +1,13 @@
-;# $Id: Storable.pm,v 0.1 1995/09/29 20:19:34 ram Exp $
+;# $Id: Storable.pm,v 0.2 1997/01/13 10:53:36 ram Exp $
 ;#
-;#  Copyright (c) 1995, Raphael Manfredi
+;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
 ;#  You may redistribute only under the terms of the Artistic License,
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
-;# Revision 0.1  1995/09/29  20:19:34  ram
-;# Baseline for first netwide alpha release.
+;# Revision 0.2  1997/01/13  10:53:36  ram
+;# Baseline for second netwide alpha release.
 ;#
 
 require DynaLoader;
@@ -15,7 +15,7 @@ require Exporter;
 package Storable; @ISA = qw(Exporter DynaLoader);
 
 @EXPORT = qw(store retrieve);
-@EXPORT_OK = qw(store_fd retrieve_fd);
+@EXPORT_OK = qw(nstore store_fd nstore_fd retrieve_fd);
 
 use AutoLoader;
 use Carp;
@@ -24,11 +24,30 @@ bootstrap Storable;
 1;
 __END__
 
+#
+# store
+#
 # Store target object hierarchy, identified by a reference to its root.
 # The stored object tree may later be retrieved to memory via retrieve.
 # Returns undef if an I/O error occurred, in which case the file is
 # removed.
+#
 sub store {
+	return _store(0, @_);
+}
+
+#
+# nstore
+#
+# Same as store, but in network order.
+#
+sub nstore {
+	return _store(1, @_);
+}
+
+# Internal store routine
+sub _store {
+	my $netorder = shift;
 	my $self = shift;
 	my ($file) = @_;
 	croak "Not a reference" unless ref($self);
@@ -36,16 +55,37 @@ sub store {
 	local *FILE;
 	open(FILE, ">$file") || croak "Can't create $file: $!";
 	my $ret;
-	eval { $ret = pstore(FILE, $self) };	# Call C routine
+	# Call C routine nstore or pstore, depending on network order
+	eval { $ret = $netorder ? net_pstore(FILE, $self) : pstore(FILE, $self) };
 	close(FILE) or $ret = undef;
 	unlink($file) or warn "Can't unlink $file: $!\n" if $@ || !defined $ret;
 	croak $@ if $@ =~ s/\.?\n$/,/;
 	return $ret ? $ret : undef;
 }
 
+#
+# store_fd
+#
 # Same as store, but perform on an already opened file descriptor instead.
 # Returns undef if an I/O error occurred.
+#
 sub store_fd {
+	return _store_fd(0, @_);
+}
+
+#
+# nstore_fd
+#
+# Same as store_fd, but in network order.
+#
+sub nstore_fd {
+	my ($self, $file) = @_;
+	return _store_fd(1, @_);
+}
+
+# Internal store routine
+sub _store_fd {
+	my $netorder = shift;
 	my $self = shift;
 	my ($file) = @_;
 	croak "Not a reference" unless ref($self);
@@ -53,13 +93,18 @@ sub store_fd {
 	my $fd = fileno($file);
 	croak "Not a valid file descriptor" unless defined $fd;
 	my $ret;
-	eval { $ret = pstore($file, $self) };	# Call C routine
+	# Call C routine nstore or pstore, depending on network order
+	eval { $ret = $netorder ? net_pstore($file, $self) : pstore($file, $self) };
 	croak $@ if $@ =~ s/\.?\n$/,/;
 	return $ret ? $ret : undef;
 }
 
+#
+# retrieve
+#
 # Retrieve object hierarchy from disk, returning a reference to the root
 # object of that tree.
+#
 sub retrieve {
 	my ($file) = @_;
 	local *FILE;
@@ -71,10 +116,15 @@ sub retrieve {
 	return $self;
 }
 
+#
+# retrieve_fd
+#
 # Same as retrieve, but perform from an already opened file descriptor instead.
+#
 sub retrieve_fd {
 	my ($file) = @_;
 	my $fd = fileno($file);
+	$fd = $file if !defined($fd) && $int($file) eq $file;
 	croak "Not a valid file descriptor" unless defined $fd;
 	my $self;
 	eval { $self = pretrieve($file) };		# Call C routine
@@ -120,12 +170,23 @@ from a file via C<retrieve_fd>. Those names aren't imported by default,
 so you will have to do that explicitely if you need those routines.
 The file descriptor name you supply must be fully qualified.
 
+You can also store data in network order to allow easy sharing across
+multiple platforms, or when storing on a socket known to be remotely
+connected. The routines to call have an initial C<n> prefix for I<network>,
+as in C<nstore> and C<nstore_fd>. At retrieval time, your data will be
+correctly restored so you don't have to know whether you're restoring
+from native or network ordered data.
+
 When using C<retrieve_fd>, objects are retrieved in sequence, one
 object (i.e. one recursive tree) per associated C<store_fd>.
 
 If you're more from the object-oriented camp, you can inherit from
 Storable and directly store your objects by invoking C<store> as
-a method.
+a method. The fact that the root of the to-be-stored tree is a
+blessed reference (i.e. an object) is special-cased so that the
+retrieve does not provide a reference to that object but rather the
+blessed object reference itself. (Otherwise, you'd get a reference
+to that blessed object).
 
 =head1 SPEED
 
@@ -137,8 +198,9 @@ Storage is usually faster than retrieval since the latter has to
 allocate the objects from memory and perform the relevant I/Os, whilst
 the former mainly performs I/Os.
 
-On my HPUX machine, I can store 200K in 0.8 seconds, and I can retrieve
-the same data in 1.1 seconds, approximatively.
+On my HP 9000/712 machine running HPUX 9.03, I can store 200K in
+0.6 seconds, and I can retrieve the same data in 1.0 seconds,
+approximatively (CPU + system time).
 
 =head1 WARNING
 
@@ -150,7 +212,7 @@ reference that was used for the key originally to record the value into
 the hash table), it will work because both references stringify to the
 same string.
 
-It won't work accross a C<store> and C<retrieve> operations however, because
+It won't work across a C<store> and C<retrieve> operations however, because
 the addresses in the retrieved objects, which are part of the stringified
 references, will probably differ from the original addresses. The
 topology of your structure is preserved, but not hidden semantics
@@ -170,6 +232,6 @@ As I said, you may try.
 
 =head1 AUTHOR
 
-Raphael Manfredi F<E<lt>ram@hptnos02.grenoble.hp.comE<gt>>
+Raphael Manfredi F<E<lt>Raphael_Manfredi@grenoble.hp.comE<gt>>
 
 =cut

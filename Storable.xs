@@ -3,16 +3,16 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.1 1995/09/29 20:19:34 ram Exp $
+ * $Id: Storable.xs,v 0.2 1997/01/13 10:53:36 ram Exp $
  *
- *  Copyright (c) 1995, Raphael Manfredi
+ *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
  *  You may redistribute only under the terms of the Artistic License,
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
- * Revision 0.1  1995/09/29  20:19:34  ram
- * Baseline for first netwide alpha release.
+ * Revision 0.2  1997/01/13  10:53:36  ram
+ * Baseline for second netwide alpha release.
  *
  */
 
@@ -47,12 +47,16 @@
 #define C(x) ((char) (x))	/* For markers with dynamic retrieval handling */
 
 #define SX_OBJECT	C(0)	/* Already stored object */
-#define SX_SCALAR	C(1)	/* Scalar forthcoming (length, data) */
+#define SX_SCALAR	C(1)	/* Scalar (string) forthcoming (length, data) */
 #define SX_ARRAY	C(2)	/* Array forthcominng (size, item list) */
 #define SX_HASH		C(3)	/* Hash forthcoming (size, key/value pair list) */
 #define SX_REF		C(4)	/* Reference to object forthcoming */
 #define SX_UNDEF	C(5)	/* Undefined scalar */
-#define SX_ERROR	C(6)	/* Error */
+#define SX_INTEGER	C(6)	/* Integer forthcoming */
+#define SX_DOUBLE	C(7)	/* Double forthcoming */
+#define SX_BYTE		C(8)	/* (signed) byte forthcoming */
+#define SX_NETINT	C(9)	/* Integer in network order forthcoming */
+#define SX_ERROR	C(10)	/* Error */
 #define SX_ITEM		'i'		/* An array item introducer */
 #define SX_IT_UNDEF	'I'		/* Undefined array item */
 #define SX_KEY		'k'		/* An hash key introducer */
@@ -82,6 +86,7 @@
  * SX_OBJECT is found bearing that same tag.
  */
 static HV *seen;			/* XXX multi-threading needs context */
+static int netorder = 0;	/* XXX idem -- true if network order used */
 
 /*
  * The following structure is used for hash table key retrieval. Since, when
@@ -198,33 +203,83 @@ SV *sv;
  *
  * Layout is SX_SCALAR <length> <data> or SX_UNDEF.
  * The <data> section is omitted if <length> is 0.
+ *
+ * If integer or double, the layout is SX_INTEGER <data> or SX_DOUBLE <data>.
+ * Small integers (within [-127, +127]) are stored as SX_BYTE <byte>.
  */
 static int store_scalar(f, sv)
 FILE *f;
 SV *sv;
 {
-	char *pv;
-	STRLEN len;
-
 	TRACEME(("store_scalar (0x%lx)", (unsigned long) sv));
 
-	if (sv == &sv_undef) {
+	if (!SvOK(sv)) {
 		TRACEME(("undef"));
 		PUTMARK(SX_UNDEF);
 		return 0;
 	}
 
 	/*
-	 * Always store the string representation of the scalar.
+	 * Always store the string representation of a scalar if it exists.
 	 * Write SX_SCALAR, length, followed by the actual data.
+	 *
+	 * Otherwise, write an SX_BYTE, SX_INTEGER or an SX_DOUBLE as
+	 * appropriate, followed by the actual (binary) data. A double
+	 * is written as a string if network order, for portability.
 	 */
 
-	PUTMARK(SX_SCALAR);
-	pv = SvPV(sv, len);
-	WLEN(len);
-	if (len)
-		WRITE(pv, len);
-	TRACEME(("ok (scalar 0x%lx, length = %d)", (unsigned long) sv, len));
+	if (SvPOK(sv) || (netorder && SvNOK(sv))) {		/* String */
+		char *pv;
+		STRLEN len;
+		pv = SvPV(sv, len);
+
+		PUTMARK(SX_SCALAR);
+		WLEN(len);
+		if (len)
+			WRITE(pv, len);
+		TRACEME(("ok (scalar 0x%lx, length = %d)", (unsigned long) sv, len));
+
+	} else if (SvIOK(sv)) {		/* Integer */
+		int iv = SvIV(sv);
+
+		/*
+		 * Optimize small integers into a single byte, otherwise store as
+		 * a real integer (converted into network order if they asked).
+		 */
+
+		if (iv >= -128 && iv <= 127) {
+			unsigned char siv = (unsigned char) (iv + 128);	/* [0,255] */
+			PUTMARK(SX_BYTE);
+			WRITE(&siv, sizeof(siv));
+		} else if (netorder) {
+			int niv;
+#ifdef HAS_HTONL
+			niv = htonl(iv);
+			TRACEME(("using network order"));
+#else
+			niv = iv;
+			TRACEME(("as-is for network order"));
+#endif
+			PUTMARK(SX_NETINT);
+			WRITE(&niv, sizeof(niv));
+		} else {
+			PUTMARK(SX_INTEGER);
+			WRITE(&iv, sizeof(iv));
+		}
+
+		TRACEME(("ok (integer 0x%lx, value = %d)", (unsigned long) sv, iv));
+
+	} else if (SvNOK(sv)) {		/* Double */
+		double nv = SvNV(sv);
+
+		PUTMARK(SX_DOUBLE);
+		WRITE(&nv, sizeof(nv));
+
+		TRACEME(("ok (double 0x%lx, value = %lf)", (unsigned long) sv, nv));
+
+	} else
+		croak("Can't determine type of %s(0x%lx)", sv_reftype(sv, FALSE),
+			(unsigned long) sv);
 
 	return 0;		/* Ok, no recursion on scalars */
 }
@@ -331,7 +386,7 @@ HV *hv;
 		 * Store value first, if defined.
 		 */
 
-		if (val == &sv_undef) {
+		if (!SvOK(val)) {
 			TRACEME(("undef value"));
 			PUTMARK(SX_VL_UNDEF);
 		} else {
@@ -427,6 +482,19 @@ SV *sv;
 }
 
 /*
+ * sv_is_object
+ *
+ * Checks whether a reference actually points to an object.
+ */
+static int sv_is_object(sv)
+SV *sv;
+{
+	SV *rv;
+
+	return sv_type(sv) == svis_REF && (rv = SvRV(sv)) && SvOBJECT(rv);
+}
+
+/*
  * store
  *
  * Recursively store objects pointed to by the sv to the specified file.
@@ -473,9 +541,9 @@ SV *sv;
 	 * Abort immediately if we get a non-zero status back.
 	 */
 
-	TRACEME(("storing..."));
-	WRITE(&sv, sizeof(sv));
 	type = sv_type(sv);
+	TRACEME(("storing 0x%x type = %d...", (unsigned long) sv, type));
+	WRITE(&sv, sizeof(sv));
 
 	if (ret = SV_STORE(type)(f, sv))
 		return ret;
@@ -521,11 +589,14 @@ SV *sv;
  * magic_write
  *
  * Write magic number and system information into the file.
- * Layout is <magic> <len> <byteorder> <sizeof int> <sizeof long> <sizeof ptr>
- * where <len> is the length of the byteorder hexa string. All size and lenghts
- * are written as single characters here.
+ * Layout is <magic> <network> [<len> <byteorder> <sizeof int> <sizeof long>
+ * <sizeof ptr>] where <len> is the length of the byteorder hexa string.
+ * All size and lenghts are written as single characters here.
+ *
+ * Note that no byte ordering info is emitted when <network> is true, since
+ * integers will be emitted in network order in that case.
  */
-static int magic_write(f)
+static int magic_write(f, use_network_order)
 FILE *f;
 {
 	char buf[256];	/* Enough room for 256 hexa digits */
@@ -534,6 +605,13 @@ FILE *f;
 	TRACEME(("magic_write"));
 
 	WRITE(magicstr, strlen(magicstr));	/* Don't write final \0 */
+
+	c = use_network_order ? '\01' : '\0';
+	PUTMARK(c);
+
+	if (use_network_order)
+		return 0;						/* Don't bother with byte ordering */
+
 	sprintf(buf, "%lx", (unsigned long) BYTEORDER);
 	c = (unsigned char) strlen(buf);
 	PUTMARK(c);
@@ -550,21 +628,20 @@ FILE *f;
 }
 
 /*
- * pstore
+ * do_store
  *
- * Store the transitive data closure of given object to disk.
- * Returns 0 on error, a true value otherwise.
+ * Common code for pstore() and net_pstore().
  */
-int pstore(f, sv)
+static int do_store(f, sv, use_network_order)
 FILE *f;
 SV *sv;
 {
 	int status;
 
-	TRACEME(("pstore"));
+	netorder = use_network_order;	/* Global, not suited for multi-thread */
 
-	if (-1 == magic_write(f))		/* Emit magic number and system info */
-		return 0;					/* Error */
+	if (-1 == magic_write(f, netorder))	/* Emit magic number and system info */
+		return 0;						/* Error */
 
 	/*
 	 * Ensure sv is actually a reference. From perl, we called something
@@ -575,15 +652,49 @@ SV *sv;
 
 	if (!SvROK(sv))
 		croak("Not a reference");
-	sv = SvRV(sv);
+
+	TRACEME(("do_store root is %s an object",
+		sv_is_object(sv) ? "really" : "not"));
+
+	if (!sv_is_object(sv))	/* If not an object, they gave a ref */
+		sv = SvRV(sv);		/* So follow it to know what to store */
 
 	seen = newHV();			/* Table where seen objects are stored */
 	status = store(f, sv);	/* Recursively store object */
 	hv_undef(seen);			/* Free seen object table */
 
-	TRACEME(("pstore returns %d", status));
+	TRACEME(("do_store returns %d", status));
 
 	return status == 0;
+}
+
+/*
+ * pstore
+ *
+ * Store the transitive data closure of given object to disk.
+ * Returns 0 on error, a true value otherwise.
+ */
+int pstore(f, sv)
+FILE *f;
+SV *sv;
+{
+	TRACEME(("pstore"));
+	return do_store(f, sv, FALSE);		/* Not in network order */
+
+}
+
+/*
+ * net_pstore
+ *
+ * Same as pstore(), but network order is used for integers and doubles are
+ * emitted as strings.
+ */
+int net_pstore(f, sv)
+FILE *f;
+SV *sv;
+{
+	TRACEME(("net_pstore"));
+	return do_store(f, sv, TRUE);				/* Use network order */
 }
 
 /*
@@ -620,7 +731,7 @@ char *addr;
 	 * WARNING: breaks RV encapsulation.
 	 *
 	 * Now for the tricky part. We have to upgrade our existing SV, so that
-	 * it is now an RV on rv... Again, we cheat by duplicating the code
+	 * it is now an RV on sv... Again, we cheat by duplicating the code
 	 * held in newSVrv(), since we already got our SV from retrieve().
 	 */
 
@@ -636,7 +747,7 @@ char *addr;
 /*
  * retrieve_scalar
  *
- * Retrieve defined scalar.
+ * Retrieve defined (string) scalar.
  *
  * Layout is SX_SCALAR <length> <data>, with SX_SCALAR already read.
  * The <data> section is omitted if <length> is 0.
@@ -656,7 +767,7 @@ char *addr;
 	 */
 
 	RLEN(len);
-	sv = NEWSV(10001, len);
+	sv = NEWSV(10002, len);
 	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
 
 	if (len == 0) {
@@ -681,6 +792,111 @@ char *addr;
 
 	TRACEME(("scalar len %d '%s'", len, SvPVX(sv)));
 	TRACEME(("ok (retrieve_scalar at 0x%lx)", (unsigned long) sv));
+
+	return sv;
+}
+
+/*
+ * retrieve_integer
+ *
+ * Retrieve defined integer.
+ * Layout is SX_INTEGER <data>, whith SX_INTEGER already read.
+ */
+static SV *retrieve_integer(f, addr)
+FILE *f;
+char *addr;
+{
+	SV *sv;
+	int iv;
+
+	TRACEME(("retrieve_integer (0x%lx)", (unsigned long) addr));
+
+	READ(&iv, sizeof(iv));
+	sv = newSViv(iv);
+	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
+
+	TRACEME(("integer %d", iv));
+	TRACEME(("ok (retrieve_integer at 0x%lx)", (unsigned long) sv));
+
+	return sv;
+}
+
+/*
+ * retrieve_netint
+ *
+ * Retrieve defined integer in network order.
+ * Layout is SX_NETINT <data>, whith SX_NETINT already read.
+ */
+static SV *retrieve_netint(f, addr)
+FILE *f;
+char *addr;
+{
+	SV *sv;
+	int iv;
+
+	TRACEME(("retrieve_netint (0x%lx)", (unsigned long) addr));
+
+	READ(&iv, sizeof(iv));
+#ifdef HAS_NTOHL
+	sv = newSViv((int) ntohl(iv));
+	TRACEME(("network integer %d", (int) ntohl(iv)));
+#else
+	sv = newSViv(iv);
+	TRACEME(("network integer (as-is) %d", iv));
+#endif
+	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
+
+	TRACEME(("ok (retrieve_netint at 0x%lx)", (unsigned long) sv));
+
+	return sv;
+}
+
+/*
+ * retrieve_double
+ *
+ * Retrieve defined double.
+ * Layout is SX_DOUBLE <data>, whith SX_DOUBLE already read.
+ */
+static SV *retrieve_double(f, addr)
+FILE *f;
+char *addr;
+{
+	SV *sv;
+	double nv;
+
+	TRACEME(("retrieve_double (0x%lx)", (unsigned long) addr));
+
+	READ(&nv, sizeof(nv));
+	sv = newSVnv(nv);
+	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
+
+	TRACEME(("double %lf", nv));
+	TRACEME(("ok (retrieve_double at 0x%lx)", (unsigned long) sv));
+
+	return sv;
+}
+
+/*
+ * retrieve_byte
+ *
+ * Retrieve defined byte (small integer within the [-128, +127] range).
+ * Layout is SX_DOUBLE <data>, whith SX_DOUBLE already read.
+ */
+static SV *retrieve_byte(f, addr)
+FILE *f;
+char *addr;
+{
+	SV *sv;
+	unsigned char siv;
+
+	TRACEME(("retrieve_byte (0x%lx)", (unsigned long) addr));
+
+	READ(&siv, sizeof(siv));
+	sv = newSViv((int) siv - 128);
+	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
+
+	TRACEME(("byte %d", (int) siv - 128));
+	TRACEME(("ok (retrieve_byte at 0x%lx)", (unsigned long) sv));
 
 	return sv;
 }
@@ -863,6 +1079,10 @@ static SV *(*sv_retrieve[])() = {
 	retrieve_hash,		/* SX_HASH */
 	retrieve_ref,		/* SX_REF */
 	retrieve_undef,		/* SX_UNDEF */
+	retrieve_integer,	/* SX_INTEGER */
+	retrieve_double,	/* SX_DOUBLE */
+	retrieve_byte,		/* SX_BYTE */
+	retrieve_netint,	/* SX_NETINT */
 	retrieve_other,		/* SX_ERROR */
 };
 
@@ -875,6 +1095,9 @@ static SV *(*sv_retrieve[])() = {
  * on an ILP compatible system with the same byteorder. It croaks out in
  * case an error is detected. [ILP = integer-long-pointer sizes]
  * Returns null if error is detected, &sv_undef otherwise.
+ *
+ * Note that there's no byte ordering info emitted when network order was
+ * used at store time.
  */
 static SV *magic_check(f)
 FILE *f;
@@ -883,12 +1106,17 @@ FILE *f;
 	char byteorder[256];
 	STRLEN len = strlen(magicstr);
 	int c;
+	int use_network_order;
 
 	READ(buf, len);		/* Not null-terminated */
 	buf[len] = '\0';	/* Is now */
 
 	if (strcmp(buf, magicstr))
 		croak("File is not a perl storable");
+
+	GETMARK(use_network_order);
+	if (use_network_order)
+		return &sv_undef;		/* No byte ordering info */
 
 	sprintf(byteorder, "%lx", (unsigned long) BYTEORDER);
 	GETMARK(c);
@@ -945,7 +1173,7 @@ FILE *f;
 		svh = hv_fetch(seen, (char *) &addr, sizeof(addr), FALSE);
 		if (!svh)
 			croak("Object 0x%lx should have been retrieved already",
-				(unsigned long) addr, type);
+				(unsigned long) addr);
 		TRACEME(("already retrieved at 0x%lx", (unsigned long) *svh));
 		return *svh;	/* The SV pointer where that object was retrieved */
 	}
@@ -1030,19 +1258,30 @@ FILE *f;
 	/*
 	 * Build a reference to the SV returned by pretrieve even if it is
 	 * already one and not a scalar, for consistency reasons.
+	 *
+	 * The only exception is when the sv we got is a an object, since
+	 * that means it's already a reference... At store time, we already
+	 * special-case this, so we must do the same now or the restored
+	 * tree will be one more level deep.
 	 */
 
-	return newRV(sv);
+	return sv_is_object(sv) ? sv : newRV(sv);
 }
 
 MODULE = Storable	PACKAGE = Storable
+
+PROTOTYPES: ENABLE
 
 int
 pstore(f,obj)
 FILE *	f
 SV *	obj
 
+int
+net_pstore(f,obj)
+FILE *	f
+SV *	obj
+
 SV *
 pretrieve(f)
 FILE *	f
-
