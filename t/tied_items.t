@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: tied_items.t,v 0.7.1.1 2000/08/13 20:10:31 ram Exp $
+# $Id: tied_items.t,v 0.7.1.2 2000/08/14 07:20:35 ram Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
@@ -8,6 +8,9 @@
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: tied_items.t,v $
+# Revision 0.7.1.2  2000/08/14 07:20:35  ram
+# patch2: removed spurious dependency to Devel::Peek, used for testing only
+#
 # Revision 0.7.1.1  2000/08/13 20:10:31  ram
 # patch1: created
 #
@@ -23,7 +26,6 @@ $^W = 0;
 print "1..8\n";
 
 use Storable qw(dclone);
-use Devel::Peek;
 
 $h_fetches = 0;
 

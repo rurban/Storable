@@ -1,3 +1,14 @@
+Mon Aug 14 09:22:04 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
+
+. Description:
+
+	Added a refcnt dec in retrieve_tied_key(): sv_magic() increases
+	the refcnt on the mg_ptr as well.
+
+	Removed spurious dependency to Devel::Peek, which was used for
+	testing only in t/tied_items.t.  Thanks to Conrad Heiney
+	<conrad@fringehead.org> for spotting it first.
+
 Sun Aug 13 22:12:59 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
 
 . Description:

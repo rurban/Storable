@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.7.1.1 2000/08/13 20:10:06 ram Exp $
+ * $Id: Storable.xs,v 0.7.1.2 2000/08/14 07:19:27 ram Exp $
  *
  *  Copyright (c) 1995-2000, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.7.1.2  2000/08/14 07:19:27  ram
+ * patch2: added a refcnt dec in retrieve_tied_key()
+ *
  * Revision 0.7.1.1  2000/08/13 20:10:06  ram
  * patch1: was wrongly optimizing for "undef" values in hashes
  * patch1: added support for ref to tied items in hash/array
@@ -3232,6 +3235,7 @@ stcxt_t *cxt;
 
 	sv_upgrade(tv, SVt_PVMG);
 	sv_magic(tv, sv, 'p', (char *)key, HEf_SVKEY);
+	SvREFCNT_dec(key);			/* Undo refcnt inc from sv_magic() */
 	SvREFCNT_dec(sv);			/* Undo refcnt inc from sv_magic() */
 
 	return tv;
@@ -3261,7 +3265,7 @@ stcxt_t *cxt;
 	RLEN(idx);					/* Retrieve <idx> */
 
 	sv_upgrade(tv, SVt_PVMG);
-	sv_magic(tv, sv, 'p', 0, idx);
+	sv_magic(tv, sv, 'p', Nullch, idx);
 	SvREFCNT_dec(sv);			/* Undo refcnt inc from sv_magic() */
 
 	return tv;
