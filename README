@@ -89,6 +89,15 @@ file):
 	HP 9000/712         0.61 s                1.02 s
 	HP 9000/856         0.33 s                0.39 s
 
+To store/retrieve the "Magic: The Gathering" (MTG) database (1.9 Mb) in
+native format:
+
+	  Machine       Time to store       Time to retrieve
+	                 (cpu + sys)           (cpu + sys)
+	HP 9000/712         1.95 s                2.19 s
+
+That's roughly 1Mb/s for store and 0.86Mb/s for retrieve.
+
 To compile this extension, run:
 
 	perl Makefile.PL [PERL_SRC=...where you put perl sources...]

@@ -7,3 +7,4 @@ patchlevel.h                Records current patchlevel
 t/dump.pl                   Small utility to dump data structures
 t/retrieve.t                Test retrieve operation
 t/store.t                   Test store operation
+ChangeLog                   Changes since baseline

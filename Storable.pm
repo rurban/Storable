@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.2 1997/01/13 10:53:36 ram Exp $
+;# $Id: Storable.pm,v 0.2.1.2 1997/01/13 16:52:47 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,6 +6,13 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.2.1.2  1997/01/13  16:52:47  ram
+;# patch2: updated statistics with MTG performance (1 Mb/s on store)
+;#
+;# Revision 0.2.1.1  1997/01/13  16:20:02  ram
+;# patch1: croak only after having closed the file
+;# patch1: removed erroneous line in retrieve_fd
+;#
 ;# Revision 0.2  1997/01/13  10:53:36  ram
 ;# Baseline for second netwide alpha release.
 ;#
@@ -111,8 +118,8 @@ sub retrieve {
 	open(FILE, "$file") || croak "Can't open $file: $!";
 	my $self;
 	eval { $self = pretrieve(FILE) };		# Call C routine
-	croak $@ if $@ =~ s/\.?\n$/,/;
 	close(FILE);
+	croak $@ if $@ =~ s/\.?\n$/,/;
 	return $self;
 }
 
@@ -124,7 +131,6 @@ sub retrieve {
 sub retrieve_fd {
 	my ($file) = @_;
 	my $fd = fileno($file);
-	$fd = $file if !defined($fd) && $int($file) eq $file;
 	croak "Not a valid file descriptor" unless defined $fd;
 	my $self;
 	eval { $self = pretrieve($file) };		# Call C routine
@@ -198,9 +204,11 @@ Storage is usually faster than retrieval since the latter has to
 allocate the objects from memory and perform the relevant I/Os, whilst
 the former mainly performs I/Os.
 
-On my HP 9000/712 machine running HPUX 9.03, I can store 200K in
-0.6 seconds, and I can retrieve the same data in 1.0 seconds,
-approximatively (CPU + system time).
+On my HP 9000/712 machine running HPUX 9.03, I can store 1 Mbytes/s
+and I can retrieve at 0.86 Mbytes/s, approximatively
+(CPU + system time).
+This was measured with Benchmark and the I<Magic: The Gathering>
+database from Tom Christiansen (1.9 Mbytes).
 
 =head1 WARNING
 

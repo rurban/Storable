@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.2 1997/01/13 10:53:36 ram Exp $
+ * $Id: Storable.xs,v 0.2.1.1 1997/01/13 16:20:31 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.2.1.1  1997/01/13  16:20:31  ram
+ * patch1: forgot to take network order into account for lengths
+ *
  * Revision 0.2  1997/01/13  10:53:36  ram
  * Baseline for second netwide alpha release.
  *
@@ -131,10 +134,21 @@ static char *magicstr = "perl-store";	/* Used as a magic number */
 		return -1;					\
 	} while (0)
 
-#define WLEN(x)	do {						\
-	if (fwrite(&x, sizeof(x), 1, f) != 1)	\
-		return -1;							\
+#ifdef HAS_HTONL
+#define WLEN(x)	do {								\
+	if (netorder) {									\
+		int y = (int) htonl(x);						\
+		if (fwrite(&y, sizeof(y), 1, f) != 1)		\
+			return -1;								\
+	} else if (fwrite(&x, sizeof(x), 1, f) != 1)	\
+		return -1;									\
 	} while (0)
+#else
+#define WLEN(x)	do {								\
+	if (fwrite(&x, sizeof(x), 1, f) != 1)			\
+		return -1;									\
+	} while (0)
+#endif
 
 #define WRITE(x,y) do {				\
 	if (fwrite(x, y, 1, f) != 1)	\
@@ -149,10 +163,19 @@ static char *magicstr = "perl-store";	/* Used as a magic number */
 		return (SV *) 0;			\
 	} while (0)
 
+#ifdef HAS_NTOHL
+#define RLEN(x)	do {						\
+	if (fread(&x, sizeof(x), 1, f) != 1)	\
+		return (SV *) 0;					\
+	if (netorder)							\
+		x = (int) ntohl(x);					\
+	} while (0)
+#else
 #define RLEN(x)	do {						\
 	if (fread(&x, sizeof(x), 1, f) != 1)	\
 		return (SV *) 0;					\
 	} while (0)
+#endif
 
 #define READ(x,y) do {			\
 	if (fread(x, y, 1, f) != 1)	\
@@ -1115,7 +1138,7 @@ FILE *f;
 		croak("File is not a perl storable");
 
 	GETMARK(use_network_order);
-	if (use_network_order)
+	if (netorder = use_network_order)
 		return &sv_undef;		/* No byte ordering info */
 
 	sprintf(byteorder, "%lx", (unsigned long) BYTEORDER);
