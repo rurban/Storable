@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.4.1.4 1997/02/27 15:32:05 ram Exp $
+ * $Id: Storable.xs,v 0.4.1.5 1997/03/25 10:20:42 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.4.1.5  1997/03/25  10:20:42  ram
+ * patch5: empty scalar strings are now "defined" at retrieval time
+ *
  * Revision 0.4.1.4  1997/02/27  15:32:05  ram
  * patch4: fixed a typo in the PerlIO_putc remapping
  * patch4: perlIO_read and perlIO_write inverted size/nb_items
@@ -954,31 +957,38 @@ char *addr;
 	sv = NEWSV(10002, len);
 	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
 
-	if (len == 0) {
-		TRACEME(("ok (retrieve_scalar empty at 0x%lx)", (unsigned long) sv));
-		return sv;
-	}
-
 	/*
 	 * WARNING: duplicates parts of sv_setpv and breaks SV data encapsulation.
-	 *
-	 * Now, for efficiency reasons, read data directly inside the SV buffer,
-	 * and perform the SV final settings directly by duplicating the final
-	 * work done by sv_setpv. Since we're going to allocate lots of scalars
-	 * this way, it's worth the hassle and risk.
 	 */
 
-	SAFEREAD(SvPVX(sv), len, sv);
-	SvCUR_set(sv, len);				/* Record C string length */
+	if (len == 0) {
+		/*
+		 * newSV did not upgrade to SVt_PV so the scalar is undefined.
+		 * To make it defined with an empty length, upgrade it now...
+		 */
+		sv_upgrade(sv, SVt_PV);
+		SvGROW(sv, 1);
+		TRACEME(("ok (retrieve_scalar empty at 0x%lx)", (unsigned long) sv));
+	} else {
+		/*
+		 * Now, for efficiency reasons, read data directly inside the SV buffer,
+		 * and perform the SV final settings directly by duplicating the final
+		 * work done by sv_setpv. Since we're going to allocate lots of scalars
+		 * this way, it's worth the hassle and risk.
+		 */
+		SAFEREAD(SvPVX(sv), len, sv);
+		SvCUR_set(sv, len);				/* Record C string length */
+		TRACEME(("small scalar len %d '%s'", len, SvPVX(sv)));
+	}
+
 	*SvEND(sv) = '\0';				/* Ensure it's null terminated anyway */
 	(void) SvPOK_only(sv);			/* Validate string pointer */
 	SvTAINT(sv);					/* External data cannot be trusted */
 
-	TRACEME(("small scalar len %d '%s'", len, SvPVX(sv)));
 	TRACEME(("ok (retrieve_scalar at 0x%lx)", (unsigned long) sv));
-
 	return sv;
 }
+
 /*
  * retrieve_integer
  *

@@ -1,3 +1,11 @@
+Tue Mar 25 11:21:32 MET 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Empty scalar strings are now "defined" at retrieval time.
+
+	New test to ensure an empty string is defined when retrieved.
+
 Thu Feb 27 16:32:44 MET 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:
