@@ -1,3 +1,21 @@
+Thu Apr 30 15:11:30 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Extended the SYNOPSIS section to give quick overview of the
+	routines and their signature.
+
+	Optimized sv_type() to avoid flags checking when not needed, i.e.
+	when their type makes it impossible for them to be refs or tied.
+	This slightly increases throughput by a few percents when refs
+	and tied variables are marginal occurrences in your data.
+
+	Stubs for XS now use OutputStream and InputStream file types to
+	make it work when the given file is actually a socket. Perl
+	makes a distinction for sockets in its internal I/O structures
+	by having both a read and a write structure, whereas plain files
+	share the same one.
+
 Tue Jun  3 09:41:33 METDST 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:
@@ -5,6 +23,7 @@ Tue Jun  3 09:41:33 METDST 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp
 	Thanks to a contribution from Benjamin A. Holzman, Storable is now
 	able to correctly serialize tied SVs, i.e. tied arrays, hashes
 	and scalars.
+
 Thu Apr  9 18:07:51 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

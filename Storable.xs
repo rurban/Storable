@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.5.1.5 1998/04/24 15:03:10 ram Exp $
+ * $Id: Storable.xs,v 0.5.1.6 1998/04/30 13:07:28 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,10 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.5.1.6  1998/04/30  13:07:28  ram
+ * patch8: optimized sv_type() to avoid flags checking when not needed
+ * patch8: stubs for XS now use OutputStream and InputStream file types
+ *
  * Revision 0.5.1.5  1998/04/24  15:03:10  ram
  * patch7: added support for serialization of tied SVs
  *
@@ -848,10 +852,12 @@ SV *sv;
 	case SVt_NULL:
 	case SVt_IV:
 	case SVt_NV:
-	case SVt_RV:
 	case SVt_PV:
 	case SVt_PVIV:
 	case SVt_PVNV:
+		return svis_SCALAR;
+	case SVt_RV:
+		return SvROK(sv) ? svis_REF : svis_SCALAR;
 	case SVt_PVMG:
 	case SVt_PVBM:
 		if (SvRMAGICAL(sv) && (mg_find(sv, 'q')))
@@ -1018,7 +1024,7 @@ int use_network_order;
 	char buf[256];	/* Enough room for 256 hexa digits */
 	unsigned char c;
 
-	TRACEME(("magic_write"));
+	TRACEME(("magic_write on fd=%d", fileno(f)));
 
 	if (f)
 		WRITE(magicstr, strlen(magicstr));	/* Don't write final \0 */
@@ -1970,18 +1976,33 @@ SV *sv;
 	return do_retrieve(0);
 }
 
+/*
+ * The Perl IO GV object distinguishes between input and output for sockets
+ * but not for plain files. To allow Storable to transparently work on
+ * plain files and sockets transparently, we have to ask xsubpp to fetch the
+ * right object for us. Hence the OutputStream and InputStream declarations.
+ *
+ * Before perl 5.004_05, those entries in the standard typemap are not
+ * defined in perl include files, so we do that here.
+ */
+
+#ifndef OutputStream
+#define OutputStream	PerlIO *
+#define InputStream		PerlIO *
+#endif	/* !OutputStream */
+
 MODULE = Storable	PACKAGE = Storable
 
 PROTOTYPES: ENABLE
 
 int
 pstore(f,obj)
-FILE *	f
+OutputStream	f
 SV *	obj
 
 int
 net_pstore(f,obj)
-FILE *	f
+OutputStream	f
 SV *	obj
 
 SV *
@@ -1994,7 +2015,7 @@ SV *	obj
 
 SV *
 pretrieve(f)
-FILE *	f
+InputStream	f
 
 SV *
 mretrieve(sv)

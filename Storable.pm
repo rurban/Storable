@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.5.1.7 1998/04/24 15:00:42 ram Exp $
+;# $Id: Storable.pm,v 0.5.1.8 1998/04/30 13:05:42 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,6 +6,10 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.5.1.8  1998/04/30  13:05:42  ram
+;# patch8: extended the SYNOPSIS section to give quick overview
+;# patch8: increased revision number
+;#
 ;# Revision 0.5.1.7  1998/04/24  15:00:42  ram
 ;# patch7: increased revision minor
 ;#
@@ -48,7 +52,7 @@ use AutoLoader;
 use Carp;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.507';
+$VERSION = '0.508';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 bootstrap Storable;
@@ -219,21 +223,41 @@ Storable - persistency for perl data structures
 	store \%table, 'file';
 	$hashref = retrieve('file');
 
+	use Storable qw(nstore store_fd nstore_fd freeze thaw dclone);
+
+	# Network order
+	nstore \%table, 'file';
+	$hashref = retrieve('file');	# There is NO nretrieve()
+
+	# Storing to and retrieving from an already opened file
+	store_fd \@array, \*STDOUT;
+	nstore_fd \%table, \*STDOUT;
+	$aryref = retrieve_fd(\*SOCKET);
+	$hashref = retrieve_fd(\*SOCKET);
+
+	# Serializing to memory
+	$serialized = freeze \%table;
+	%table_clone = %{ thaw($serialized) };
+
+	# Deep (recursive) cloning
+	$cloneref = dclone($ref);
+
 =head1 DESCRIPTION
 
-The Storable package brings you persistency for your perl data structures
+The Storable package brings persistency to your perl data structures
 containing SCALAR, ARRAY, HASH or REF objects, i.e. anything that can be
 convenientely stored to disk and retrieved at a later time.
 
 It can be used in the regular procedural way by calling C<store> with
-a reference to the object to store, and providing a file name. The routine
-returns C<undef> for I/O problems or other internal error, a true value
-otherwise. Serious errors are propagated as a C<die> exception.
+a reference to the object to be stored, along with the file name where
+the image should be written.
+The routine returns C<undef> for I/O problems or other internal error,
+a true value otherwise. Serious errors are propagated as a C<die> exception.
 
-To retrieve data stored to disk, you use C<retrieve> with a file name,
+To retrieve data stored to disk, use C<retrieve> with a file name,
 and the objects stored into that file are recreated into memory for you,
-and a I<reference> to the root object is returned. In case an I/O error
-occurred while reading, C<undef> is returned instead. Other serious
+a I<reference> to the root object being returned. In case an I/O error
+occurs while reading, C<undef> is returned instead. Other serious
 errors are propagated via C<die>.
 
 Since storage is performed recursively, you might want to stuff references
@@ -352,10 +376,10 @@ descriptors that you pass to Storable functions.
 
 You can't store GLOB, CODE, FORMLINE, etc... If you can define
 semantics for those operations, feel free to enhance Storable so that
-it can deal with those.
+it can deal with them.
 
 The store functions will C<croak> if they run into such references
-unless you set C<$Storable::forgive_me> to some C<TRUE> value. In this
+unless you set C<$Storable::forgive_me> to some C<TRUE> value. In that
 case, the fatal message is turned in a warning and some
 meaningless string is stored instead.
 
@@ -363,7 +387,6 @@ Due to the aforementionned optimizations, Storable is at the mercy
 of perl's internal redesign or structure changes. If that bothers
 you, you can try convincing Larry that what is used in Storable
 should be documented and consistently kept in future revisions.
-As I said, you may try.
 
 =head1 AUTHOR
 
