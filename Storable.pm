@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.6.1.9 2000/03/02 22:19:47 ram Exp $
+;# $Id: Storable.pm,v 0.6.1.10 2000/03/29 17:53:02 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1998, Raphael Manfredi
 ;#  
@@ -6,6 +6,10 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.6.1.10  2000/03/29 17:53:02  ram
+;# patch10: protect all $@ variables when eval {} used
+;# patch10: incremented version number
+;#
 ;# Revision 0.6.1.9  2000/03/02 22:19:47  ram
 ;# patch9: updated version number
 ;#
@@ -54,7 +58,7 @@ use AutoLoader;
 use Carp;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.609';
+$VERSION = '0.610';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 bootstrap Storable;
@@ -92,12 +96,14 @@ sub _store {
 	local *FILE;
 	open(FILE, ">$file") || croak "Can't create $file: $!";
 	binmode FILE;				# Archaic systems...
+	my $da = $@;				# Don't mess if called from exception handler
 	my $ret;
 	# Call C routine nstore or pstore, depending on network order
 	eval { $ret = $netorder ? net_pstore(*FILE, $self) : pstore(*FILE, $self) };
 	close(FILE) or $ret = undef;
 	unlink($file) or warn "Can't unlink $file: $!\n" if $@ || !defined $ret;
 	croak $@ if $@ =~ s/\.?\n$/,/;
+	$@ = $da;
 	return $ret ? $ret : undef;
 }
 
@@ -130,10 +136,12 @@ sub _store_fd {
 	croak "Too many arguments" unless @_ == 1;	# Watch out for @foo in arglist
 	my $fd = fileno($file);
 	croak "Not a valid file descriptor" unless defined $fd;
+	my $da = $@;				# Don't mess if called from exception handler
 	my $ret;
 	# Call C routine nstore or pstore, depending on network order
 	eval { $ret = $netorder ? net_pstore($file, $self) : pstore($file, $self) };
 	croak $@ if $@ =~ s/\.?\n$/,/;
+	$@ = $da;
 	return $ret ? $ret : undef;
 }
 
@@ -162,10 +170,12 @@ sub _freeze {
 	my $self = shift;
 	croak "Not a reference" unless ref($self);
 	croak "Too many arguments" unless @_ == 0;	# Watch out for @foo in arglist
+	my $da = $@;				# Don't mess if called from exception handler
 	my $ret;
 	# Call C routine mstore or net_mstore, depending on network order
 	eval { $ret = $netorder ? net_mstore($self) : mstore($self) };
 	croak $@ if $@ =~ s/\.?\n$/,/;
+	$@ = $da;
 	return $ret ? $ret : undef;
 }
 #
@@ -180,9 +190,11 @@ sub retrieve {
 	open(FILE, "$file") || croak "Can't open $file: $!";
 	binmode FILE;							# Archaic systems...
 	my $self;
+	my $da = $@;							# Could be from exception handler
 	eval { $self = pretrieve(*FILE) };		# Call C routine
 	close(FILE);
 	croak $@ if $@ =~ s/\.?\n$/,/;
+	$@ = $da;
 	return $self;
 }
 
@@ -196,8 +208,10 @@ sub retrieve_fd {
 	my $fd = fileno($file);
 	croak "Not a valid file descriptor" unless defined $fd;
 	my $self;
+	my $da = $@;							# Could be from exception handler
 	eval { $self = pretrieve($file) };		# Call C routine
 	croak $@ if $@ =~ s/\.?\n$/,/;
+	$@ = $da;
 	return $self;
 }
 
@@ -211,8 +225,10 @@ sub thaw {
 	my ($frozen) = @_;
 	return undef unless defined $frozen;
 	my $self;
+	my $da = $@;							# Could be from exception handler
 	eval { $self = mretrieve($frozen) };	# Call C routine
 	croak $@ if $@ =~ s/\.?\n$/,/;
+	$@ = $da;
 	return $self;
 }
 

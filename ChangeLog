@@ -1,3 +1,18 @@
+Wed Mar 29 19:55:21 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
+
+. Description:
+
+	Added note about format incompatibilities with old versions
+	(i.e. pre 0.5@9 formats, which cannot be understood as there
+	was no versionning information in the file by then).
+
+	Protect all $@ variables when eval {} used, to avoid corrupting
+	it when store/retrieve is called within an exception handler.
+
+	Mistakenly included "patchlevel.h" instead of <patchlevel.h>,
+	preventing Perl's patchlevel from being included, which is
+	needed starting from 5.6.
+
 Tue May 12 09:15:15 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

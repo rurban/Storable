@@ -14,8 +14,12 @@
 
        *** This is beta software -- use at your own risks ***
 
+IMPORTANT:
+    The serialization format changed between 0.5 and 0.6, and
+    is NOT backward compatible.  Think about it when upgrading from a
+    pre-0.5@9 version -- images from versions 0.5@9 are still supported.
+
 The Storable extension brings persistency to your data.
-This extension is NOT thread-safe and should not be used by threaded perls.
 
 You may recursively store to disk any data structure, no matter
 how complex and circular it is, provided it contains only SCALAR,

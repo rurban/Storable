@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.6.1.8 2000/03/02 22:20:35 ram Exp $
+ * $Id: Storable.xs,v 0.6.1.9 2000/03/29 17:53:48 ram Exp $
  *
  *  Copyright (c) 1995-1998, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.6.1.9  2000/03/29 17:53:48  ram
+ * patch10: mistakenly included "patchlevel.h" instead of <patchlevel.h>
+ *
  * Revision 0.6.1.8  2000/03/02 22:20:35  ram
  * patch9: include "patchlevel.h" for new perl 5.6
  * patch9: fixed "undef" bug in hash keys, reported by Albert N. Micheev
@@ -46,10 +49,10 @@
  *
  */
 
-#include "EXTERN.h"
-#include "perl.h"
-#include "patchlevel.h"		/* Perl's one, needed since 5.6 */
-#include "XSUB.h"
+#include <EXTERN.h>
+#include <perl.h>
+#include <patchlevel.h>		/* Perl's one, needed since 5.6 */
+#include <XSUB.h>
 
 /*#define DEBUGME /* Debug mode, turns assertions on as well */
 /*#define DASSERT /* Assertion mode */
