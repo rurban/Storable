@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 1.0.1.3 2000/09/29 19:49:01 ram Exp $
+;# $Id: Storable.pm,v 1.0.1.4 2000/10/23 18:02:57 ram Exp $
 ;#
 ;#  Copyright (c) 1995-2000, Raphael Manfredi
 ;#  
@@ -6,6 +6,10 @@
 ;#  in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 1.0.1.4  2000/10/23 18:02:57  ram
+;# patch4: protected calls to flock() for dos platform
+;# patch4: added logcarp emulation if they don't have Log::Agent
+;#
 ;# Revision 1.0.1.3  2000/09/29 19:49:01  ram
 ;# patch3: updated version number
 ;#
@@ -36,7 +40,7 @@ package Storable; @ISA = qw(Exporter DynaLoader);
 use AutoLoader;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '1.003';
+$VERSION = '1.004';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 #
@@ -50,6 +54,10 @@ unless (defined @Log::Agent::EXPORT) {
 		sub logcroak {
 			require Carp;
 			Carp::croak(@_);
+		}
+		sub logcarp {
+			require Carp;
+			Carp::carp(@_);
 		}
 	};
 }
@@ -71,6 +79,7 @@ BEGIN {
 }
 
 sub logcroak;
+sub logcarp;
 
 sub retrieve_fd { &fd_retrieve }		# Backward compatibility
 
@@ -128,6 +137,10 @@ sub _store {
 	open(FILE, ">$file") || logcroak "can't create $file: $!";
 	binmode FILE;				# Archaic systems...
 	if ($use_locking) {
+		if ($^O eq 'dos') {
+			logcarp "Storable::lock_store: fcntl/flock emulation broken on $^O";
+			return undef;
+		}
 		flock(FILE, LOCK_EX) ||
 			logcroak "can't get exclusive lock on $file: $!";
 		truncate FILE, 0;
@@ -244,6 +257,10 @@ sub _retrieve {
 	my $self;
 	my $da = $@;							# Could be from exception handler
 	if ($use_locking) {
+		if ($^O eq 'dos') {
+			logcarp "Storable::lock_store: fcntl/flock emulation broken on $^O";
+			return undef;
+		}
 		flock(FILE, LOCK_SH) || logcroak "can't get shared lock on $file: $!";
 		# Unlocking will happen when FILE is closed
 	}

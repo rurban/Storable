@@ -1,3 +1,17 @@
+Mon Oct 23 20:03:49 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
+
+. Description:
+
+	Version 1.0.4.
+
+	Protected calls to flock() for DOS platform: apparently, the
+	flock/fcnlt emulation is reported to be broken on that
+	platform.
+
+	Added logcarp emulation if they don't have Log::Agent, since
+	we now use it to carp when lock_store/lock_retrieve is used
+	on DOS.
+
 Fri Sep 29 21:52:29 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
 
 . Description:
