@@ -12,7 +12,7 @@
 # Baseline for first beta release.
 #
 
-require 'dump.pl';
+require 't/dump.pl';
 
 use Storable qw(freeze thaw);
 

@@ -12,7 +12,7 @@
 # Baseline for first beta release.
 #
 
-require 'dump.pl';
+require 't/dump.pl';
 
 use Storable qw(store retrieve store_fd nstore_fd retrieve_fd);
 
@@ -26,13 +26,13 @@ $c->{attribute} = 'attrval';
 @a = ('first', undef, 3, -4, -3.14159, 456, 4.5,
 	$b, \$a, $a, $c, \$c, \%a);
 
-print "not " unless defined store(\@a, 'store');
+print "not " unless defined store(\@a, 't/store');
 print "ok 1\n";
 
 $dumped = &dump(\@a);
 print "ok 2\n";
 
-$root = retrieve('store');
+$root = retrieve('t/store');
 print "not " unless defined $root;
 print "ok 3\n";
 
@@ -55,10 +55,10 @@ sub make {
 package main;
 
 $foo = FOO->make;
-print "not " unless $foo->store('store');
+print "not " unless $foo->store('t/store');
 print "ok 6\n";
 
-print "not " unless open(OUT, '>>store');
+print "not " unless open(OUT, '>>t/store');
 print "ok 7\n";
 binmode OUT;
 
@@ -72,7 +72,7 @@ print "ok 10\n";
 print "not " unless close(OUT);
 print "ok 11\n";
 
-print "not " unless open(OUT, 'store');
+print "not " unless open(OUT, 't/store');
 binmode OUT;
 
 $r = retrieve_fd(::OUT);
@@ -104,5 +104,5 @@ print "not " unless $@;
 print "ok 20\n";
 
 close OUT;
-unlink 'store';
+unlink 't/store';
 
