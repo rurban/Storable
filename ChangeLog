@@ -1,3 +1,13 @@
+Thu Feb 27 15:58:31 MET 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Updated version number
+
+	Added VERSION identification
+
+	Allow build with perl5.003, which is ante perlIO time
+
 Mon Jan 13 17:53:18 MET 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

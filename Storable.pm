@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.4.1.1 1997/01/22 14:17:19 ram Exp $
+;# $Id: Storable.pm,v 0.4.1.2 1997/02/27 14:57:42 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,6 +6,9 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.4.1.2  1997/02/27  14:57:42  ram
+;# patch3: added VERSION identification
+;#
 ;# Revision 0.4.1.1  1997/01/22  14:17:19  ram
 ;# patch1: documented new forgive_me variable
 ;#
@@ -23,6 +26,8 @@ package Storable; @ISA = qw(Exporter DynaLoader);
 use AutoLoader;
 use Carp;
 use vars qw($forgive_me);
+
+$VERSION = '0.4_03';
 
 bootstrap Storable;
 1;

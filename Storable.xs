@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.4.1.2 1997/01/22 14:33:57 ram Exp $
+ * $Id: Storable.xs,v 0.4.1.3 1997/02/27 14:58:17 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.4.1.3  1997/02/27  14:58:17  ram
+ * patch3: allow build with perl5.003, which is ante perlIO time
+ *
  * Revision 0.4.1.2  1997/01/22  14:33:57  ram
  * patch2: random code fix to avoid compiler warnings
  *
@@ -30,6 +33,21 @@
 
 /*#define DEBUGME /* Debug mode, turns assertions on as well */
 /*#define DASSERT /* Assertion mode */
+
+/*
+ * Pre PerlIO time when none of USE_PERLIO and PERLIO_IS_STDIO is defined
+ * Provide them with the necessary defines so they can build with pre-5.004.
+ */
+#ifndef USE_PERLIO
+#ifndef PERLIO_IS_STDIO
+#define PerlIO FILE
+#define PerlIO_getc(x) getc(x)
+#define PerlIO_putc(f,x) putc(c,f)
+#define PerlIO_read(x,y,z) fread(y,z,1,x)
+#define PerlIO_write(x,y,z) fwrite(y,z,1,x)
+#define PerlIO_stdoutf printf
+#endif	/* PERLIO_IS_STDIO */
+#endif	/* USE_PERLIO */
 
 #ifdef DEBUGME
 #ifndef DASSERT
