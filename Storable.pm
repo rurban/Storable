@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 1.0.1.2 2000/09/28 21:42:51 ram Exp $
+;# $Id: Storable.pm,v 1.0.1.3 2000/09/29 19:49:01 ram Exp $
 ;#
 ;#  Copyright (c) 1995-2000, Raphael Manfredi
 ;#  
@@ -6,6 +6,9 @@
 ;#  in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 1.0.1.3  2000/09/29 19:49:01  ram
+;# patch3: updated version number
+;#
 ;# Revision 1.0.1.2  2000/09/28 21:42:51  ram
 ;# patch2: added lock_store lock_nstore lock_retrieve
 ;#
@@ -33,7 +36,7 @@ package Storable; @ISA = qw(Exporter DynaLoader);
 use AutoLoader;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '1.002';
+$VERSION = '1.003';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 #

@@ -1,3 +1,14 @@
+Fri Sep 29 21:52:29 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
+
+. Description:
+
+	Version 1.0.3.
+
+	Avoid using "tainted" and "dirty" since Perl remaps them via
+	cpp (i.e. #define).  This is deeply harmful when threading
+	is enabled.  This concerned both the context structure and
+	local variable and argument names.  Brrr..., scary!
+
 Thu Sep 28 23:46:39 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
 
 . Description:

@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 1.0.1.2 2000/09/28 21:43:10 ram Exp $
+ * $Id: Storable.xs,v 1.0.1.3 2000/09/29 19:49:57 ram Exp $
  *
  *  Copyright (c) 1995-2000, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 1.0.1.3  2000/09/29 19:49:57  ram
+ * patch3: avoid using "tainted" and "dirty" since Perl remaps them via cpp
+ *
  * Revision 1.0.1.2  2000/09/28 21:43:10  ram
  * patch2: perls before 5.004_04 lack newSVpvn
  *
@@ -233,6 +236,12 @@ typedef unsigned long stag_t;	/* Used by pre-0.6 binary format */
 
 #define MY_VERSION "Storable(" XS_VERSION ")"
 
+/*
+ * Fields s_tainted and s_dirty are prefixed with s_ because Perl's include
+ * files remap tainted and dirty when threading is enabled.  That's bad for
+ * perl to remap such common words.	-- RAM, 29/09/00
+ */
+
 typedef struct stcxt {
 	int entry;			/* flags recursion */
 	int optype;			/* type of traversal operation */
@@ -244,10 +253,10 @@ typedef struct stcxt {
     I32 tagnum;			/* incremented at store time for each seen object */
     I32 classnum;		/* incremented at store time for each seen classname */
     int netorder;		/* true if network order used */
-    int tainted;		/* true if input source is tainted, at retrieve time */
+    int s_tainted;		/* true if input source is tainted, at retrieve time */
     int forgive_me;		/* whether to be forgiving... */
     int canonical;		/* whether to store hashes sorted by key */
-	int dirty;			/* context is dirty due to CROAK() -- can be cleaned */
+	int s_dirty;		/* context is dirty due to CROAK() -- can be cleaned */
     struct extendable keybuf;	/* for hash key retrieval */
     struct extendable membuf;	/* for memory store/retrieve operations */
 	PerlIO *fio;		/* where I/O are performed, NULL for memory */
@@ -312,7 +321,7 @@ static stcxt_t *Context_ptr = &Context;
  * but the topmost context stacked.
  */
 
-#define CROAK(x)	do { cxt->dirty = 1; croak x; } while (0)
+#define CROAK(x)	do { cxt->s_dirty = 1; croak x; } while (0)
 
 /*
  * End of "thread-safe" related definitions.
@@ -989,7 +998,7 @@ static void clean_store_context(stcxt_t *cxt)
 	sv_free((SV *) cxt->hook);
 
 	cxt->entry = 0;
-	cxt->dirty = 0;
+	cxt->s_dirty = 0;
 }
 
 /*
@@ -997,7 +1006,7 @@ static void clean_store_context(stcxt_t *cxt)
  *
  * Initialize a new retrieve context for real recursion.
  */
-static void init_retrieve_context(stcxt_t *cxt, int optype, int tainted)
+static void init_retrieve_context(stcxt_t *cxt, int optype, int is_tainted)
 {
 	TRACEME(("init_retrieve_context"));
 
@@ -1026,7 +1035,7 @@ static void init_retrieve_context(stcxt_t *cxt, int optype, int tainted)
 	cxt->tagnum = 0;				/* Have to count objects... */
 	cxt->classnum = 0;				/* ...and class names as well */
 	cxt->optype = optype;
-	cxt->tainted = tainted;
+	cxt->s_tainted = is_tainted;
 	cxt->entry = 1;					/* No recursion yet */
 }
 
@@ -1054,7 +1063,7 @@ static void clean_retrieve_context(stcxt_t *cxt)
 		sv_free((SV *) cxt->hseen);		/* optional HV, for backward compat. */
 
 	cxt->entry = 0;
-	cxt->dirty = 0;
+	cxt->s_dirty = 0;
 }
 
 /*
@@ -1067,7 +1076,7 @@ stcxt_t *cxt;
 {
 	TRACEME(("clean_context"));
 
-	ASSERT(cxt->dirty, ("dirty context"));
+	ASSERT(cxt->s_dirty, ("dirty context"));
 
 	if (cxt->optype & ST_RETRIEVE)
 		clean_retrieve_context(cxt);
@@ -1088,7 +1097,7 @@ stcxt_t *parent_cxt;
 
 	TRACEME(("allocate_context"));
 
-	ASSERT(!parent_cxt->dirty, ("parent context clean"));
+	ASSERT(!parent_cxt->s_dirty, ("parent context clean"));
 
 	Newz(0, cxt, 1, stcxt_t);
 	cxt->prev = parent_cxt;
@@ -1110,7 +1119,7 @@ stcxt_t *cxt;
 
 	TRACEME(("free_context"));
 
-	ASSERT(!cxt->dirty, ("clean context"));
+	ASSERT(!cxt->s_dirty, ("clean context"));
 	ASSERT(prev, ("not freeing root context"));
 
 	if (kbuf)
@@ -2638,7 +2647,7 @@ static int do_store(
 	 * free up memory for them now.
 	 */
 
-	if (cxt->dirty)
+	if (cxt->s_dirty)
 		clean_context(cxt);
 
 	/*
@@ -2652,7 +2661,7 @@ static int do_store(
 	cxt->entry++;
 
 	ASSERT(cxt->entry == 1, ("starting new recursion"));
-	ASSERT(!cxt->dirty, ("clean context"));
+	ASSERT(!cxt->s_dirty, ("clean context"));
 
 	/*
 	 * Ensure sv is actually a reference. From perl, we called something
@@ -3076,7 +3085,7 @@ static SV *retrieve_hook(stcxt_t *cxt)
 		*SvEND(frozen) = '\0';
 	}
 	(void) SvPOK_only(frozen);		/* Validates string pointer */
-	if (cxt->tainted)				/* Is input source tainted? */
+	if (cxt->s_tainted)				/* Is input source tainted? */
 		SvTAINT(frozen);
 
 	TRACEME(("frozen string: %d bytes", len2));
@@ -3471,7 +3480,7 @@ static SV *retrieve_lscalar(stcxt_t *cxt)
 	SvCUR_set(sv, len);				/* Record C string length */
 	*SvEND(sv) = '\0';				/* Ensure it's null terminated anyway */
 	(void) SvPOK_only(sv);			/* Validate string pointer */
-	if (cxt->tainted)				/* Is input source tainted? */
+	if (cxt->s_tainted)				/* Is input source tainted? */
 		SvTAINT(sv);				/* External data cannot be trusted */
 
 	TRACEME(("large scalar len %"IVdf" '%s'", len, SvPVX(sv)));
@@ -3531,7 +3540,7 @@ static SV *retrieve_scalar(stcxt_t *cxt)
 	}
 
 	(void) SvPOK_only(sv);			/* Validate string pointer */
-	if (cxt->tainted)				/* Is input source tainted? */
+	if (cxt->s_tainted)				/* Is input source tainted? */
 		SvTAINT(sv);				/* External data cannot be trusted */
 
 	TRACEME(("ok (retrieve_scalar at 0x%"UVxf")", PTR2UV(sv)));
@@ -4302,7 +4311,7 @@ static SV *do_retrieve(
 {
 	dSTCXT;
 	SV *sv;
-	int tainted;				/* Is input source tainted? */
+	int is_tainted;				/* Is input source tainted? */
 	struct extendable msave;	/* Where potentially valid mbuf is saved */
 
 	TRACEME(("do_retrieve (optype = 0x%x)", optype));
@@ -4325,7 +4334,7 @@ static SV *do_retrieve(
 	 * free up memory for them now.
 	 */
 
-	if (cxt->dirty)
+	if (cxt->s_dirty)
 		clean_context(cxt);
 
 	/*
@@ -4339,7 +4348,7 @@ static SV *do_retrieve(
 	cxt->entry++;
 
 	ASSERT(cxt->entry == 1, ("starting new recursion"));
-	ASSERT(!cxt->dirty, ("clean context"));
+	ASSERT(!cxt->s_dirty, ("clean context"));
 
 	/*
 	 * Prepare context.
@@ -4384,9 +4393,9 @@ static SV *do_retrieve(
 	 * already quite a kludge anyway! -- RAM, 15/09/2000.
 	 */
 
-	tainted = f ? 1 : (in ? SvTAINTED(in) : cxt->tainted);
-	TRACEME(("input source is %s", tainted ? "tainted" : "trusted"));
-	init_retrieve_context(cxt, optype, tainted);
+	is_tainted = f ? 1 : (in ? SvTAINTED(in) : cxt->s_tainted);
+	TRACEME(("input source is %s", is_tainted ? "tainted" : "trusted"));
+	init_retrieve_context(cxt, optype, is_tainted);
 
 	ASSERT(is_retrieving(), ("within retrieve operation"));
 
@@ -4516,7 +4525,7 @@ SV *dclone(SV *sv)
 	 * free up memory for them now.
 	 */
 
-	if (cxt->dirty)
+	if (cxt->s_dirty)
 		clean_context(cxt);
 
 	/*
@@ -4539,7 +4548,7 @@ SV *dclone(SV *sv)
 	 * Now, `cxt' may refer to a new context.
 	 */
 
-	ASSERT(!cxt->dirty, ("clean context"));
+	ASSERT(!cxt->s_dirty, ("clean context"));
 	ASSERT(!cxt->entry, ("entry will not cause new context allocation"));
 
 	size = MBUF_SIZE();
@@ -4554,7 +4563,7 @@ SV *dclone(SV *sv)
 	 * do_retrieve() will free non-root context.
 	 */
 
-	cxt->tainted = SvTAINTED(sv);
+	cxt->s_tainted = SvTAINTED(sv);
 	out = do_retrieve((PerlIO*) 0, Nullsv, ST_CLONE);
 
 	TRACEME(("dclone returns 0x%"UVxf, PTR2UV(out)));
