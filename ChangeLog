@@ -1,3 +1,15 @@
+Fri May 16 10:45:47 METDST 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Forgot that AutoLoader does not export its own AUTOLOAD.
+	I could use
+
+		use AutoLoader 'AUTOLOAD';
+	
+	but that would not be backward compatible. So the export is
+	done by hand...
+
 Tue Mar 25 11:21:32 MET 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:
