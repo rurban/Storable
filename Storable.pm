@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 1.0 2000/09/01 19:40:41 ram Exp $
+;# $Id: Storable.pm,v 1.0.1.1 2000/09/17 16:46:21 ram Exp $
 ;#
 ;#  Copyright (c) 1995-2000, Raphael Manfredi
 ;#  
@@ -6,6 +6,10 @@
 ;#  in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 1.0.1.1  2000/09/17 16:46:21  ram
+;# patch1: documented that doubles are stringified by nstore()
+;# patch1: added Salvador Ortiz Garcia in CREDITS section
+;#
 ;# Revision 1.0  2000/09/01 19:40:41  ram
 ;# Baseline for first official release.
 ;#
@@ -25,7 +29,7 @@ package Storable; @ISA = qw(Exporter DynaLoader);
 use AutoLoader;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '1.000';
+$VERSION = '1.001';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 #
@@ -286,7 +290,9 @@ multiple platforms, or when storing on a socket known to be remotely
 connected. The routines to call have an initial C<n> prefix for I<network>,
 as in C<nstore> and C<nstore_fd>. At retrieval time, your data will be
 correctly restored so you don't have to know whether you're restoring
-from native or network ordered data.
+from native or network ordered data.  Double values are stored stringified
+to ensure portability as well, at the slight risk of loosing some precision
+in the last decimals.
 
 When using C<fd_retrieve>, objects are retrieved in sequence, one
 object (i.e. one recursive tree) per associated C<store_fd>.
@@ -588,6 +594,7 @@ Thank you to (in chronological order):
 	Marc Lehmann <pcg@opengroup.org>
 	Justin Banks <justinb@wamnet.com>
 	Jarkko Hietaniemi <jhi@iki.fi> (AGAIN, as perl 5.7.0 Pumpkin!)
+	Salvador Ortiz Garcia <sog@msg.com.mx>
 
 for their bug reports, suggestions and contributions.
 

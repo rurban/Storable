@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: recurse.t,v 1.0 2000/09/01 19:40:42 ram Exp $
+# $Id: recurse.t,v 1.0.1.1 2000/09/17 16:48:05 ram Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
@@ -8,6 +8,9 @@
 #  in the README file that comes with the distribution.
 #  
 # $Log: recurse.t,v $
+# Revision 1.0.1.1  2000/09/17 16:48:05  ram
+# patch1: added test case for store hook bug
+#
 # Revision 1.0  2000/09/01 19:40:42  ram
 # Baseline for first official release.
 #
@@ -17,7 +20,7 @@ sub ok;
 
 use Storable qw(freeze thaw dclone);
 
-print "1..23\n";
+print "1..28\n";
 
 package OBJ_REAL;
 
@@ -170,3 +173,51 @@ ok 21, $OBJ_REAL2::hook_called == 2 * $OBJ_REAL2::MAX;
 
 ok 22, !Storable::is_storing;
 ok 23, !Storable::is_retrieving;
+
+#
+# The following was a test-case that Salvador Ortiz Garcia <sog@msg.com.mx>
+# sent me, along with a proposed fix.
+#
+
+package Foo;
+
+sub new {
+	my $class = shift;
+	my $dat = shift;
+	return bless {dat => $dat}, $class;
+}
+
+package Bar;
+sub new {
+	my $class = shift;
+	return bless {
+		a => 'dummy',
+		b => [ 
+			Foo->new(1),
+			Foo->new(2), # Second instance of a Foo 
+		]
+	}, $class;
+}
+
+sub STORABLE_freeze {
+	my($self,$clonning) = @_;
+	return "$self->{a}", $self->{b};
+}
+
+sub STORABLE_thaw {
+	my($self,$clonning,$dummy,$o) = @_;
+	$self->{a} = $dummy;
+	$self->{b} = $o;
+}
+
+package main;
+
+my $bar = new Bar;
+my $bar2 = thaw freeze $bar;
+
+ok 24, ref($bar2) eq 'Bar';
+ok 25, ref($bar->{b}[0]) eq 'Foo';
+ok 26, ref($bar->{b}[1]) eq 'Foo';
+ok 27, ref($bar2->{b}[0]) eq 'Foo';
+ok 28, ref($bar2->{b}[1]) eq 'Foo';
+
