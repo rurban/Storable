@@ -1,13 +1,16 @@
 #!./perl
 
-# $Id: compat-0.6.t,v 1.0.1.1 2001/02/17 12:26:21 ram Exp $
+# $Id: compat06.t,v 2.00 2002/05/18 16:00:59 ams Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
 #  You may redistribute only under the same terms as Perl 5, as specified
 #  in the README file that comes with the distribution.
 #
-# $Log: compat-0.6.t,v $
+# $Log: compat06.t,v $
+# Revision 2.00  2002/05/18 16:00:59  ams
+# Import Storable 2.00 from perl-current.
+#
 # Revision 1.0.1.1  2001/02/17 12:26:21  ram
 # patch8: added EBCDIC version of the test, from Peter Prymmer
 #
@@ -15,7 +18,21 @@
 # Baseline for first official release.
 #
 
-require 't/dump.pl';
+BEGIN {
+    if ($ENV{PERL_CORE}){
+	chdir('t') if -d 't';
+	@INC = ('.', '../lib', '../ext/Storable/t');
+    } else {
+	unshift @INC, 't';
+    }
+    require Config; import Config;
+    if ($ENV{PERL_CORE} and $Config{'extensions'} !~ /\bStorable\b/) {
+        print "1..0 # Skip: Storable was not built\n";
+        exit 0;
+    }
+    require 'st-dump.pl';
+}
+
 sub ok;
 
 print "1..8\n";
@@ -79,7 +96,7 @@ sub obj { $_[0]->{obj} }
 package main;
 
 my $is_EBCDIC = (ord('A') == 193) ? 1 : 0;
-
+ 
 my $r = ROOT->make;
 
 my $data = '';
@@ -100,13 +117,16 @@ if (!$is_EBCDIC) {			# ASCII machine
 
 my $expected_length = $is_EBCDIC ? 217 : 278;
 ok 1, length $data == $expected_length;
-
+  
 my $y = thaw($data);
 ok 2, 1;
 ok 3, ref $y eq 'ROOT';
 
 $Storable::canonical = 1;		# Prevent "used once" warning
 $Storable::canonical = 1;
+# Allow for long double string conversions.
+$y->{num}->[3] += 0;
+$r->{num}->[3] += 0;
 ok 4, nfreeze($y) eq nfreeze($r);
 
 ok 5, $y->ref->{key1} eq 'val1';

@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: forgive.t,v 1.0.1.1 2000/09/01 19:40:42 ram Exp $
+# $Id: forgive.t,v 2.00 2002/05/18 16:00:59 ams Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
@@ -11,6 +11,9 @@
 # (C) Copyright 1997, Universitat Dortmund, all rights reserved.
 #
 # $Log: forgive.t,v $
+# Revision 2.00  2002/05/18 16:00:59  ams
+# Import Storable 2.00 from perl-current.
+#
 # Revision 1.0.1.1  2000/09/01 19:40:42  ram
 # Baseline for first official release.
 #
@@ -18,7 +21,27 @@
 # Baseline for first official release.
 #
 
+sub BEGIN {
+    if ($ENV{PERL_CORE}){
+	chdir('t') if -d 't';
+	@INC = ('.', '../lib');
+    } else {
+	unshift @INC, 't';
+    }
+    require File::Spec;
+    if ($File::Spec::VERSION < 0.8) {
+	print "1..0 # Skip: newer File::Spec needed\n";
+	exit 0;
+    }
+    require Config; import Config;
+    if ($ENV{PERL_CORE} and $Config{'extensions'} !~ /\bStorable\b/) {
+        print "1..0 # Skip: Storable was not built\n";
+        exit 0;
+    }
+}
+
 use Storable qw(store retrieve);
+
 
 print "1..8\n";
 
@@ -26,30 +49,30 @@ my $test = 1;
 my $bad = ['foo', sub { 1 },  'bar'];
 my $result;
 
-eval {$result = store ($bad , 't/store')};
+eval {$result = store ($bad , 'store')};
 print ((!defined $result)?"ok $test\n":"not ok $test\n"); $test++;
 print (($@ ne '')?"ok $test\n":"not ok $test\n"); $test++;
 
 $Storable::forgive_me=1;
 
+my $devnull = File::Spec->devnull;
+
 open(SAVEERR, ">&STDERR");
-open(STDERR, ">/dev/null") or 
+open(STDERR, ">$devnull") or 
   ( print SAVEERR "Unable to redirect STDERR: $!\n" and exit(1) );
 
-eval {$result = store ($bad , 't/store')};
+eval {$result = store ($bad , 'store')};
 
 open(STDERR, ">&SAVEERR");
 
 print ((defined $result)?"ok $test\n":"not ok $test\n"); $test++;
 print (($@ eq '')?"ok $test\n":"not ok $test\n"); $test++;
 
-my $ret = retrieve('t/store');
+my $ret = retrieve('store');
 print ((defined $ret)?"ok $test\n":"not ok $test\n"); $test++;
 print (($ret->[0] eq 'foo')?"ok $test\n":"not ok $test\n"); $test++;
 print (($ret->[2] eq 'bar')?"ok $test\n":"not ok $test\n"); $test++;
 print ((ref $ret->[1] eq 'SCALAR')?"ok $test\n":"not ok $test\n"); $test++;
 
 
-END {
-  unlink 't/store';
-}
+END { 1 while unlink 'store' }

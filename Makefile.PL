@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.0.1.1 2001/01/03 09:38:39 ram Exp $
+# $Id: Makefile.PL,v 2.00 2002/05/18 16:00:57 ams Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
@@ -6,6 +6,9 @@
 #  in the README file that comes with the distribution.
 #
 # $Log: Makefile.PL,v $
+# Revision 2.00  2002/05/18 16:00:57  ams
+# Import Storable 2.00 from perl-current.
+#
 # Revision 1.0.1.1  2001/01/03 09:38:39  ram
 # patch7: removed spurious 'clean' entry
 #
@@ -20,6 +23,7 @@ WriteMakefile(
     'NAME'			=> 'Storable',
     'DISTNAME'		=> "Storable",
 	'MAN3PODS'		=> {},
+    PREREQ_PM		=> {'Test::More' => 0},
     'VERSION_FROM'	=> 'Storable.pm',
     'dist'			=> { SUFFIX => 'gz', COMPRESS => 'gzip -f' },
 );

@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: freeze.t,v 1.0.1.1 2001/07/01 11:25:16 ram Exp $
+# $Id: freeze.t,v 2.00 2002/05/18 16:00:59 ams Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
@@ -8,6 +8,9 @@
 #  in the README file that comes with the distribution.
 #
 # $Log: freeze.t,v $
+# Revision 2.00  2002/05/18 16:00:59  ams
+# Import Storable 2.00 from perl-current.
+#
 # Revision 1.0.1.1  2001/07/01 11:25:16  ram
 # patch12: added test cases for mem corruption during thaw()
 #
@@ -15,8 +18,21 @@
 # Baseline for first official release.
 #
 
-require 't/dump.pl';
-sub ok;
+sub BEGIN {
+    if ($ENV{PERL_CORE}){
+	chdir('t') if -d 't';
+	@INC = ('.', '../lib', '../ext/Storable/t');
+    } else {
+	unshift @INC, 't';
+    }
+    require Config; import Config;
+    if ($ENV{PERL_CORE} and $Config{'extensions'} !~ /\bStorable\b/) {
+        print "1..0 # Skip: Storable was not built\n";
+        exit 0;
+    }
+    require 'st-dump.pl';
+    sub ok;
+}
 
 use Storable qw(freeze nfreeze thaw);
 
