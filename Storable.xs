@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.5.1.3 1998/04/08 11:13:35 ram Exp $
+ * $Id: Storable.xs,v 0.5.1.4 1998/04/09 16:07:23 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.5.1.4  1998/04/09  16:07:23  ram
+ * patch6: said SvPOK() had changed to SvPOKp(), but that was a lie...
+ *
  * Revision 0.5.1.3  1998/04/08  11:13:35  ram
  * patch5: wrote sizeof(SV *) instead of sizeof(I32) when portable
  *
@@ -211,7 +214,7 @@ struct extendable membuf;	/* for memory store/retrieve operations */
  * See store_scalar() for other usage of this workaround.
  */
 #define MBUF_LOAD(v) do {				\
-	if (!SvPOK(v))						\
+	if (!SvPOKp(v))						\
 		croak("Not a scalar string");	\
 	mptr = mbase = SvPV(v, msiz);		\
 	mend = mbase + msiz;				\

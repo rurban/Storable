@@ -1,3 +1,8 @@
+Thu Apr  9 18:07:51 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	I said SvPOK() had changed to SvPOKp(), but that was a lie...
 Wed Apr  8 13:14:29 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:
