@@ -1,3 +1,15 @@
+Thu Feb 27 16:32:44 MET 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Updated version number
+
+	Declare VERSION as being used
+
+	Fixed a typo in the PerlIO_putc remapping.
+	PerlIO_read and perlIO_write inverted size/nb_items.
+	(only relevant for pre-perl5.004 versions)
+
 Thu Feb 27 15:58:31 MET 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

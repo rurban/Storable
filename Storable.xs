@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.4.1.3 1997/02/27 14:58:17 ram Exp $
+ * $Id: Storable.xs,v 0.4.1.4 1997/02/27 15:32:05 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,10 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.4.1.4  1997/02/27  15:32:05  ram
+ * patch4: fixed a typo in the PerlIO_putc remapping
+ * patch4: perlIO_read and perlIO_write inverted size/nb_items
+ *
  * Revision 0.4.1.3  1997/02/27  14:58:17  ram
  * patch3: allow build with perl5.003, which is ante perlIO time
  *
@@ -42,9 +46,9 @@
 #ifndef PERLIO_IS_STDIO
 #define PerlIO FILE
 #define PerlIO_getc(x) getc(x)
-#define PerlIO_putc(f,x) putc(c,f)
-#define PerlIO_read(x,y,z) fread(y,z,1,x)
-#define PerlIO_write(x,y,z) fwrite(y,z,1,x)
+#define PerlIO_putc(f,x) putc(x,f)
+#define PerlIO_read(x,y,z) fread(y,1,z,x)
+#define PerlIO_write(x,y,z) fwrite(y,1,z,x)
 #define PerlIO_stdoutf printf
 #endif	/* PERLIO_IS_STDIO */
 #endif	/* USE_PERLIO */
