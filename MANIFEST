@@ -1,8 +1,10 @@
 README                      Read this first
 MANIFEST                    This shipping list
+MacPerl.README
 Makefile.PL                 Generic Makefile template
 Storable.pm                 The perl side of Storable
 Storable.xs                 The C side of Storable
+macblib.sit.hqx
 patchlevel.h                Records current patchlevel
 t/canonical.t               Test canonical hash table dumping
 t/dclone.t                  Test deep cloning

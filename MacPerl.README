@@ -1,0 +1,36 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+
+Monday, July 20, 1998
+
+This is the Storable-0.6@3 module with shared libraries compiled for 
+MacPerl.  Shared libraries run only on PPC and CFM68K versions, not 
+non-CFM 68K versions.  For that, install the NOXSUB version also 
+contained in this archive.
+
+This was compiled with MPW and CodeWarrior.  Passed all tests.
+I have no 68K machine (even my Newton is RISC :) so I can't test
+the CFM68K version.  Let me know any problems.
+
+Decompress macblib.sit.hqx and install the three files in "macblib".
+Installing into your site_perl directory is best:
+
+    {MACPERL}site_perl:Storable.pm
+    {MACPERL}site_perl:MacCFM68K:auto:Storable:Storable
+    {MACPERL}site_perl:MacPPC:auto:Storable:Storable
+
+Also read README.
+
+-----BEGIN PGP SIGNATURE-----
+Version: PGPfreeware 5.0 for non-commercial use <http://www.pgp.com>
+Charset: noconv
+
+iQCVAwUBNbOgXihcZja3bnKtAQHjiwQAhPgK/0UdxN4giCCLk1wRA0YukgV0LUMX
+KQ0gL4CMhwogjUsgDvUpZwEXmEpyNo3rVYv0vjRD0C29vH7DcixM0XMAd79QOP9v
+CtmNf3kAV+Gu4J9uponjWKeLo6BQihLxkWHmIDhcsYKzTbyZPi74ccZ6u7W07fBs
+B41Cd42vr00=
+=sh39
+-----END PGP SIGNATURE-----
+
+-- 
+Chris Nandor          mailto:pudge@pobox.com         http://pudge.net/
+%PGPKey = ('B76E72AD', [1024, '0824090B CE73CA10  1FF77F13 8180B6B6'])
