@@ -100,10 +100,9 @@ That's roughly 1Mb/s for store and 0.86Mb/s for retrieve.
 
 NOTE: The above figures were valid for Storable-0.5 and earlier. No
 similar benchmarking have been made with Storable-0.6 and higher,
-which use a different binary image and appear to be much faster at
-retrieve time.
+which use a different binary image.
 
-Comparison of Storable-0.5@9 and Storable-0.6@1 on a version of
+Comparison of Storable-0.5@9 and Storable-0.6@3 on a version of
 Tom Christiansen's MTG database (1.8 Mb in native 0.5 format, 1.6 Mb
 only in 0.6 format) gives:
 
@@ -111,7 +110,7 @@ only in 0.6 format) gives:
                  Size in Mb     in Kb/s     in Kb/s     in Kb/s
 
 	 0.5@9          1.817         801         701         692
-	 0.6@1          1.526         692         655         929
+	 0.6@3          1.526         880         851         870
 
 Kb/s rates refer to the size of the Storable image. Since the image
 is shorter with version 0.6, we must normalize the results to compare
@@ -122,13 +121,12 @@ takes to store/retrieve the same database. We get:
                  Size in Mb     in secs     in secs     in secs
 
 	 0.5@9          1.817         2.32        2.65        2.69
-	 0.6@1          1.526         2.26        2.39        1.69
+	 0.6@3          1.526         1.78        1.84        1.80
 
 Notice the important gain at retrieval time, due to the fact that we
 now use an array instead of a hash table to keep track of retrieved
-objects. I have no explaination for the speed-up of nstore operations
-other than the fact that less tests for "use netorder?" are made, but
-that should also speed up regular store time, and it does not...
+objects. I have no explaination for the relative speed-up of nstore
+operations other than the fact that less tests for "netorder" are made.
 
 To compile this extension, run:
 

@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.6.1.2 1998/06/22 09:00:04 ram Exp $
+ * $Id: Storable.xs,v 0.6.1.3 1998/07/03 11:36:09 ram Exp $
  *
  *  Copyright (c) 1995-1998, Raphael Manfredi
  *  
@@ -11,6 +11,10 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.6.1.3  1998/07/03  11:36:09  ram
+ * patch3: fixed compatibility (wrt 0.5@9) for retrieval of blessed refs
+ * patch3: increased store() throughput significantly
+ *
  * Revision 0.6.1.2  1998/06/22  09:00:04  ram
  * patch2: adjust refcnt of tied objects after calling sv_magic()
  *
@@ -51,6 +55,9 @@
  */
 #ifndef newRV_noinc
 #define newRV_noinc(sv)		((Sv = newRV(sv)), --SvREFCNT(SvRV(Sv)), Sv)
+#endif
+#ifndef HvSHAREKEYS_off
+#define HvSHAREKEYS_off(hv)	/* Ignore */
 #endif
 
 #ifdef DEBUGME
@@ -585,7 +592,7 @@ SV *sv;
 
 		TRACEME(("ok (double 0x%lx, value = %lf)", (unsigned long) sv, nv));
 
-	} else if (flags & SVp_IOK) {		/* SvIOKp(sv) = > integer */
+	} else if (flags & SVp_IOK) {		/* SvIOKp(sv) => integer */
 		iv = SvIV(sv);
 
 		/*
@@ -908,12 +915,12 @@ SV *sv;
 	/*
 	 * The mg->mg_obj found by mg_find() above actually points to the
 	 * underlying tied Perl object implementation. For instance, if the
-	 * original SV was that of a tied array, them mg->mg_obj is an AV.
+	 * original SV was that of a tied array, then mg->mg_obj is an AV.
 	 *
 	 * Note that we store the Perl object as-is. We don't call its FETCH
 	 * method along the way. At retrieval time, we won't call its STORE
 	 * method either, but the tieing magic will be re-installed. In itself,
-	 * that ensure that the tieing semantics are preserved since futher
+	 * that ensures that the tieing semantics are preserved since futher
 	 * accesses on the retrieved object will indeed call the magic methods...
 	 */
 
@@ -1069,7 +1076,7 @@ SV *sv;
 
 	svh = hv_fetch(hseen, (char *) &sv, sizeof(sv), FALSE);
 	if (svh) {
-		I32 tagval = htonl(SvIV(*svh));
+		I32 tagval = htonl((I32) (*svh));
 		TRACEME(("object 0x%lx seen as #%d.", (unsigned long) sv, tagval));
 		PUTMARK(SX_OBJECT);
 		WRITE(&tagval, sizeof(I32));
@@ -1078,15 +1085,15 @@ SV *sv;
 
 	/*
 	 * Allocate a new tag and associate it with the address of the sv being
-	 * stored, before recursing... The allocated tag SV will have a refcount
-	 * of 1 and will be reclaimed when the %hseen table is disposed of.
+	 * stored, before recursing...
 	 *
-	 * NOTE: As suggested by Gisle Aas, there is room for improvement here by
-	 * storing "(SV *) tagnum" instead of creating SVs to hold the value.
-	 * However, the cleanup of the resulting hash table has to be done manually.
+	 * In order to avoid creating new SvIVs to hold the tagnum we just
+	 * cast the tagnum to a SV pointer and store that in the hash.  This
+	 * means that we must clean up the hash manually afterwards, but gives
+	 * us a 15% throughput increase.
 	 */
 
-	if (!hv_store(hseen, (char *) &sv, sizeof(sv), newSViv(tagnum++), 0))
+	if (!hv_store(hseen, (char *) &sv, sizeof(sv), (SV*) (tagnum++), 0))
 		return -1;
 	TRACEME(("recorded 0x%lx as object #%d", (unsigned long) sv, tagnum));
 
@@ -1214,8 +1221,58 @@ int use_network_order;
 		croak("Not a reference");
 	sv = SvRV(sv);			/* So follow it to know what to store */
 
-	hseen = newHV();		/* Table where seen objects are stored */
-	status = store(f, sv);	/* Recursively store object */
+	/*
+	 * The hash table used to keep track of each SV stored and their
+	 * associated tag numbers is special. It is "abused" because the
+	 * values stored are not real SV, just integers cast to (SV *),
+	 * which explains the freeing below.
+	 *
+	 * It is also one possible bottlneck to achieve good storing speed,
+	 * so the "shared keys" optimization is turned off (unlikely to be
+	 * of any use here), and the hash table is "pre-extended". Together,
+	 * those optimizations increase the throughput by 12%.
+	 */
+
+	hseen = newHV();			/* Table where seen objects are stored */
+	HvSHAREKEYS_off(hseen);
+
+	/*
+	 * The following does not work well with perl5.004_04, and causes
+	 * a core dump later on, in a completely unrelated spot, which
+	 * makes me think there is a memory corruption going on.
+	 *
+	 * Calling hv_ksplit(hseen, HBUCKETS) instead of manually hacking
+	 * it below does not make any difference. It seems to work fine
+	 * with perl5.004_68 but given the probable nature of the bug,
+	 * that does not prove anything.
+	 *
+	 * It's a shame because increasing the amount of buckets raises
+	 * store() throughput by 5%, but until I figure this out, I can't
+	 * allow for this to go into production.
+	 */
+#if 0
+#define HBUCKETS	4096			/* Buckets for %hseen */
+	HvMAX(hseen) = HBUCKETS - 1;	/* keys %hseen = $HBUCKETS; */
+#endif
+
+	/*
+	 * Recursively store object...
+	 */
+
+	status = store(f, sv);		/* Just do it! */
+
+	/*
+	 * Need to free the hseen table, but since we have stored fake
+	 * value pointers in it, we need to make them real first.
+	 */
+
+	{
+		HE * he;
+
+		hv_iterinit(hseen);
+		while (he = hv_iternext(hseen))
+			HeVAL(he) = &sv_undef;
+	}
 	hv_undef(hseen);		/* Free seen object table */
 	sv_free((SV *) hseen);	/* Free HV */
 
@@ -1625,7 +1682,7 @@ PerlIO *f;
  * retrieve_byte
  *
  * Retrieve defined byte (small integer within the [-128, +127] range).
- * Layout is SX_DOUBLE <data>, whith SX_DOUBLE already read.
+ * Layout is SX_BYTE <data>, whith SX_BYTE already read.
  */
 static SV *retrieve_byte(f)
 PerlIO *f;
@@ -1746,10 +1803,10 @@ PerlIO *f;
 	RLEN(len);
 	TRACEME(("size = %d", len));
 	av = newAV();
-	SEEN(av);				/* Will return if array not allocated nicely */
+	SEEN(av);					/* Will return if array not allocated nicely */
 	if (len)
 		av_extend(av, len);
-	if (len == 0)
+	else
 		return (SV *) av;		/* No data follow if array is empty */
 
 	/*
@@ -1876,7 +1933,7 @@ PerlIO *f;
 	SEEN(av);					/* Will return if array not allocated nicely */
 	if (len)
 		av_extend(av, len);
-	if (len == 0)
+	else
 		return (SV *) av;		/* No data follow if array is empty */
 
 	/*
@@ -2332,7 +2389,17 @@ PerlIO *f;
 	/*
 	 * Build a reference to the SV returned by pretrieve even if it is
 	 * already one and not a scalar, for consistency reasons.
+	 *
+	 * Backward compatibility with Storable-0.5@9 (which we know we
+	 * are retrieving if hseen is non-null): don't create an extra RV
+	 * for objects since we special-cased it at store time.
 	 */
+
+	if (hseen) {
+		SV *rv;
+		if (sv_type(sv) == svis_REF && (rv = SvRV(sv)) && SvOBJECT(rv))
+			return sv;
+	}
 
 	return newRV_noinc(sv);
 }

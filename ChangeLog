@@ -1,3 +1,16 @@
+Fri Jul  3 13:38:16 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Updated benchmark figures due to recent optimizations done in
+	store(): tagnums are now stored as-is in the hash table, so
+	no surrounding SV is created. And the "shared keys" mode for
+	hash table was turned off.
+
+	Fixed backward compatibility (wrt 0.5@9) for retrieval of
+	blessed refs. That old version did something wrong, but the
+	bugfix prevented correct retrieval of the old format.
+
 Mon Jun 22 11:00:48 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:
