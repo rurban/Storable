@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: freeze.t,v 0.5 1997/06/10 16:38:41 ram Exp $
+# $Id: freeze.t,v 0.5.1.1 1997/11/05 09:51:56 ram Exp $
 #
 #  Copyright (c) 1995-1997, Raphael Manfredi
 #  
@@ -8,6 +8,9 @@
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: freeze.t,v $
+# Revision 0.5.1.1  1997/11/05  09:51:56  ram
+# patch1: added regression test for "Allocation too large"
+#
 # Revision 0.5  1997/06/10  16:38:41  ram
 # Baseline for fifth alpha release.
 #
@@ -16,7 +19,7 @@ require 't/dump.pl';
 
 use Storable qw(freeze nfreeze thaw);
 
-print "1..13\n";
+print "1..14\n";
 
 $a = 'toto';
 $b = \$a;
@@ -80,4 +83,17 @@ print "ok 12\n";
 $root2 = thaw($other);
 print "not " unless &dump($root2) eq &dump($root);
 print "ok 13\n";
+
+$VAR1 = [
+	'method',
+	1,
+	'prepare',
+	'SELECT table_name, table_owner, num_rows FROM iitables
+                  where table_owner != \'$ingres\' and table_owner != \'DBA\''
+];
+
+$x = nfreeze($VAR1);
+$VAR2 = thaw($x);
+print "not " unless $VAR2->[3] eq $VAR1->[3];
+print "ok 14\n";
 

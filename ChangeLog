@@ -1,3 +1,14 @@
+Wed Nov  5 10:53:22 MET 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Fix memory leaks on seen hash table and returned SV refs.
+
+	Storable did not work properly when tainting enabled.
+
+	Fixed "Allocation too large" messages in freeze/thaw and added.
+	proper regression test in t/freeze.t.
+
 Tue Jun  3 09:41:33 METDST 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

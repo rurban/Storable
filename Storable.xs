@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.5 1997/06/10 16:38:38 ram Exp $
+ * $Id: Storable.xs,v 0.5.1.1 1997/11/05 09:51:35 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,11 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.5.1.1  1997/11/05  09:51:35  ram
+ * patch1: fix memory leaks on seen hash table and returned SV refs
+ * patch1: did not work properly when tainting enabled
+ * patch1: fixed "Allocation too large" messages in freeze/thaw
+ *
  * Revision 0.5  1997/06/10  16:38:38  ram
  * Baseline for fifth alpha release.
  *
@@ -37,6 +42,13 @@
 #define PerlIO_stdoutf printf
 #endif	/* PERLIO_IS_STDIO */
 #endif	/* USE_PERLIO */
+
+/*
+ * Earlier versions of perl might be used, we can't assume they have the latest!
+ */
+#ifndef newRV_noinc
+#define newRV_noinc(sv)		((Sv = newRV(sv)), --SvREFCNT(SvRV(Sv)), Sv)
+#endif
 
 #ifdef DEBUGME
 #ifndef DASSERT
@@ -205,7 +217,7 @@ struct extendable membuf;	/* for memory store/retrieve operations */
 
 #define MBUF_GETC(x) do {			\
 	if (mptr < mend)				\
-		x = (int) *mptr++;			\
+		x = (int) (unsigned char) *mptr++;	\
 	else							\
 		return (SV *) 0;			\
 } while (0)
@@ -443,9 +455,13 @@ SV *sv;
 	 * Otherwise, write an SX_BYTE, SX_INTEGER or an SX_DOUBLE as
 	 * appropriate, followed by the actual (binary) data. A double
 	 * is written as a string if network order, for portability.
+	 *
+	 * NOTE: instead of using SvNOK(sv), we test for SvNOKp(sv).
+	 * The reason is that when the scalar value is tainted, the SvNOK(sv)
+	 * value is false.
 	 */
 
-	if (SvNOK(sv)) {			/* Double */
+	if (SvNOKp(sv)) {			/* Double */
 		double nv = SvNV(sv);
 
 		/*
@@ -467,7 +483,7 @@ SV *sv;
 
 		TRACEME(("ok (double 0x%lx, value = %lf)", (unsigned long) sv, nv));
 
-	} else if (SvIOK(sv)) {		/* Integer */
+	} else if (SvIOKp(sv)) {		/* Integer */
 		iv = SvIV(sv);
 
 		/*
@@ -503,7 +519,7 @@ SV *sv;
 
 		TRACEME(("ok (integer 0x%lx, value = %d)", (unsigned long) sv, iv));
 
-	} else if (SvPOK(sv)) {		/* String */
+	} else if (SvPOKp(sv)) {	/* String */
 		pv = SvPV(sv, len);
 
 		/*
@@ -804,7 +820,7 @@ SV *sv;
 	 * Record the address as being stored, before recursing...
 	 */
 
-	if (hv_store(seen, (char *) &sv, sizeof(sv), &sv_undef, 0) == 0)
+	if (!hv_store(seen, (char *) &sv, sizeof(sv), SvREFCNT_inc(&sv_undef), 0))
 		return -1;
 	TRACEME(("recorded 0x%lx...", (unsigned long) sv));
 
@@ -938,6 +954,7 @@ int use_network_order;
 	seen = newHV();			/* Table where seen objects are stored */
 	status = store(f, sv);	/* Recursively store object */
 	hv_undef(seen);			/* Free seen object table */
+	sv_free((SV *) seen);	/* Free HV */
 
 	TRACEME(("do_store returns %d", status));
 
@@ -1089,13 +1106,14 @@ char *addr;
 	STRLEN len;
 	SV *sv;
 
-	TRACEME(("retrieve_lscalar (0x%lx)", (unsigned long) addr));
+	RLEN(len);
+	TRACEME(("retrieve_lscalar (0x%lx), len = %d",
+		(unsigned long) addr, len));
 
 	/*
 	 * Allocate an empty scalar of the suitable length.
 	 */
 
-	RLEN(len);
 	sv = NEWSV(10002, len);
 	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
 
@@ -1136,13 +1154,14 @@ char *addr;
 	int len;
 	SV *sv;
 
-	TRACEME(("retrieve_scalar (0x%lx)", (unsigned long) addr));
+	GETMARK(len);
+	TRACEME(("retrieve_scalar (0x%lx), len = %d",
+		(unsigned long) addr, len));
 
 	/*
 	 * Allocate an empty scalar of the suitable length.
 	 */
 
-	GETMARK(len);
 	sv = NEWSV(10002, len);
 	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
 
@@ -1647,6 +1666,7 @@ PerlIO *f;
 	seen = newHV();			/* Table where retrieved objects are kept */
 	sv = retrieve(f);		/* Recursively retrieve object, get root SV  */
 	hv_undef(seen);			/* Free retrieved object table */
+	sv_free((SV *) seen);	/* Free HV */
 
 	if (!sv) {
 		TRACEME(("retrieve ERROR"));
@@ -1666,7 +1686,7 @@ PerlIO *f;
 	 * tree will be one more level deep.
 	 */
 
-	return sv_is_object(sv) ? sv : newRV(sv);
+	return sv_is_object(sv) ? sv : newRV_noinc(sv);
 }
 
 /*

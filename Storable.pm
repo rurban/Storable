@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.5 1997/06/10 16:38:37 ram Exp $
+;# $Id: Storable.pm,v 0.5.1.1 1997/11/05 09:47:42 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,6 +6,9 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.5.1.1  1997/11/05  09:47:42  ram
+;# patch1: updated version number
+;#
 ;# Revision 0.5  1997/06/10  16:38:37  ram
 ;# Baseline for fifth alpha release.
 ;#
@@ -25,7 +28,7 @@ use AutoLoader;
 use Carp;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.5';
+$VERSION = '0.5_01';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 bootstrap Storable;
