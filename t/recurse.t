@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: recurse.t,v 1.0.1.1 2000/09/17 16:48:05 ram Exp $
+# $Id: recurse.t,v 1.0.1.2 2000/11/05 17:22:05 ram Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
@@ -8,6 +8,9 @@
 #  in the README file that comes with the distribution.
 #  
 # $Log: recurse.t,v $
+# Revision 1.0.1.2  2000/11/05 17:22:05  ram
+# patch6: stress hook a little more with refs to lexicals
+#
 # Revision 1.0.1.1  2000/09/17 16:48:05  ram
 # patch1: added test case for store hook bug
 #
@@ -85,15 +88,19 @@ sub make {
 
 sub STORABLE_freeze {
 	my $self = shift;
-	my $t = dclone($self->{sync});
-	return ("", [$t, $self->{ext}], $self, $self->{ext});
+	my %copy = %$self;
+	my $r = \%copy;
+	my $t = dclone($r->{sync});
+	return ("", [$t, $self->{ext}], $r, $self, $r->{ext});
 }
 
 sub STORABLE_thaw {
 	my $self = shift;
-	my ($cloning, $undef, $a, $obj, $ext) = @_;
+	my ($cloning, $undef, $a, $r, $obj, $ext) = @_;
 	die "STORABLE_thaw #1" unless $obj eq $self;
 	die "STORABLE_thaw #2" unless ref $a eq 'ARRAY';
+	die "STORABLE_thaw #3" unless ref $r eq 'HASH';
+	die "STORABLE_thaw #4" unless $a->[1] == $r->{ext};
 	$self->{ok} = $self;
 	($self->{sync}, $self->{ext}) = @$a;
 }
