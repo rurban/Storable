@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: retrieve.t,v 0.2 1997/01/13 10:53:37 ram Exp $
+# $Id: retrieve.t,v 0.3 1997/01/14 14:57:47 ram Exp $
 #
 #  Copyright (c) 1995-1997, Raphael Manfredi
 #  
@@ -8,8 +8,8 @@
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: retrieve.t,v $
-# Revision 0.2  1997/01/13  10:53:37  ram
-# Baseline for second netwide alpha release.
+# Revision 0.3  1997/01/14  14:57:47  ram
+# Baseline for third netwide alpha release.
 #
 
 chdir 't' if -d 't';
@@ -24,7 +24,8 @@ $b = \$a;
 $c = bless {}, CLASS;
 $c->{attribute} = 'attrval';
 %a = ('key', 'value', 1, 0, $a, $b, 'cvar', \$c);
-@a = ('first', undef, 3, 456, 4.5, $b, \$a, $a, $c, \$c, \%a);
+@a = ('first', undef, 3, -4, -3.14159, 456, 4.5,
+	$b, \$a, $a, $c, \$c, \%a);
 
 print "not " unless defined store(\@a, 'store');
 print "ok 1\n";

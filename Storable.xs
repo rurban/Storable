@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.2.1.1 1997/01/13 16:20:31 ram Exp $
+ * $Id: Storable.xs,v 0.3 1997/01/14 14:57:45 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,11 +11,8 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
- * Revision 0.2.1.1  1997/01/13  16:20:31  ram
- * patch1: forgot to take network order into account for lengths
- *
- * Revision 0.2  1997/01/13  10:53:36  ram
- * Baseline for second netwide alpha release.
+ * Revision 0.3  1997/01/14  14:57:45  ram
+ * Baseline for third netwide alpha release.
  *
  */
 
@@ -195,8 +192,8 @@ static char *magicstr = "perl-store";	/* Used as a magic number */
 		("*** ALREADY SEEN 0x%lx ***", (unsigned long) x));	\
 	if (hv_store(seen, (char *) &x, sizeof(x), SvREFCNT_inc(y), 0) == 0) \
 		return (SV *) 0;		\
-	TRACEME(("seen(0x%lx) = 0x%lx (%d ref)", (unsigned long) x, \
-		(unsigned long) y, SvREFCNT(y))); \
+	TRACEME(("seen(0x%lx) = 0x%lx (refcnt=%d)", (unsigned long) x, \
+		(unsigned long) y, SvREFCNT(y)-1)); \
 	} while (0)
 
 static int store();
@@ -234,6 +231,10 @@ static int store_scalar(f, sv)
 FILE *f;
 SV *sv;
 {
+	IV iv;
+	char *pv;
+	STRLEN len;
+
 	TRACEME(("store_scalar (0x%lx)", (unsigned long) sv));
 
 	if (!SvOK(sv)) {
@@ -251,19 +252,35 @@ SV *sv;
 	 * is written as a string if network order, for portability.
 	 */
 
-	if (SvPOK(sv) || (netorder && SvNOK(sv))) {		/* String */
-		char *pv;
-		STRLEN len;
-		pv = SvPV(sv, len);
+	if (SvNOK(sv)) {			/* Double */
+		double nv = SvNV(sv);
 
-		PUTMARK(SX_SCALAR);
-		WLEN(len);
-		if (len)
-			WRITE(pv, len);
-		TRACEME(("ok (scalar 0x%lx, length = %d)", (unsigned long) sv, len));
+		/*
+		 * Watch for number being an integer in disguise.
+		 */
+		if (nv == (double) (iv = I_V(nv))) {
+			TRACEME(("double %lf is actually integer %ld", nv, iv));
+			goto integer;		/* Share code below */
+		}
+
+		if (netorder) {
+			TRACEME(("double %lf stored as string", nv));
+			pv = SvPV(sv, len);
+			goto string;		/* Share code below */
+		}
+
+		PUTMARK(SX_DOUBLE);
+		WRITE(&nv, sizeof(nv));
+
+		TRACEME(("ok (double 0x%lx, value = %lf)", (unsigned long) sv, nv));
 
 	} else if (SvIOK(sv)) {		/* Integer */
-		int iv = SvIV(sv);
+		iv = SvIV(sv);
+
+		/*
+		 * Will come here from above with iv set if double is an integer.
+		 */
+	integer:
 
 		/*
 		 * Optimize small integers into a single byte, otherwise store as
@@ -273,11 +290,11 @@ SV *sv;
 		if (iv >= -128 && iv <= 127) {
 			unsigned char siv = (unsigned char) (iv + 128);	/* [0,255] */
 			PUTMARK(SX_BYTE);
-			WRITE(&siv, sizeof(siv));
+			PUTMARK(siv);
 		} else if (netorder) {
 			int niv;
 #ifdef HAS_HTONL
-			niv = htonl(iv);
+			niv = (int) htonl(iv);
 			TRACEME(("using network order"));
 #else
 			niv = iv;
@@ -292,13 +309,19 @@ SV *sv;
 
 		TRACEME(("ok (integer 0x%lx, value = %d)", (unsigned long) sv, iv));
 
-	} else if (SvNOK(sv)) {		/* Double */
-		double nv = SvNV(sv);
+	} else if (SvPOK(sv)) {		/* String */
+		pv = SvPV(sv, len);
 
-		PUTMARK(SX_DOUBLE);
-		WRITE(&nv, sizeof(nv));
+		/*
+		 * Will come here from above with pv and len set if double & netorder.
+		 */
+	string:
 
-		TRACEME(("ok (double 0x%lx, value = %lf)", (unsigned long) sv, nv));
+		PUTMARK(SX_SCALAR);
+		WLEN(len);
+		if (len)
+			WRITE(pv, len);
+		TRACEME(("ok (scalar 0x%lx, length = %d)", (unsigned long) sv, len));
 
 	} else
 		croak("Can't determine type of %s(0x%lx)", sv_reftype(sv, FALSE),
@@ -756,10 +779,19 @@ char *addr;
 	 * Now for the tricky part. We have to upgrade our existing SV, so that
 	 * it is now an RV on sv... Again, we cheat by duplicating the code
 	 * held in newSVrv(), since we already got our SV from retrieve().
+	 *
+	 * We don't say:
+	 *
+	 *		SvRV(rv) = SvREFCNT_inc(sv);
+	 *
+	 * here because the reference count we got from retrieve() above is
+	 * already correct: if the object was retrieved from the file, then
+	 * its reference count is one. Otherwise, if it was retrieved via
+	 * an SX_OBJECT indication, a ref count increment was done.
 	 */
 
 	sv_upgrade(rv, SVt_RV);
-	SvRV(rv) = SvREFCNT_inc(sv);	/* $rv = \$sv */
+	SvRV(rv) = sv;				/* $rv = \$sv */
 	SvROK_on(rv);
 
 	TRACEME(("ok (retrieve_ref at 0x%lx)", (unsigned long) rv));
@@ -910,12 +942,12 @@ FILE *f;
 char *addr;
 {
 	SV *sv;
-	unsigned char siv;
+	int siv;
 
 	TRACEME(("retrieve_byte (0x%lx)", (unsigned long) addr));
 
-	READ(&siv, sizeof(siv));
-	sv = newSViv((int) siv - 128);
+	GETMARK(siv);
+	sv = newSViv(siv - 128);
 	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
 
 	TRACEME(("byte %d", (int) siv - 128));
@@ -1026,6 +1058,7 @@ char *addr;
 	HV *hv;
 	SV *sv;
 	int c;
+	static SV *sv_h_undef = (SV *) 0;		/* hv_store() bug */
 
 	TRACEME(("retrieve_hash (0x%lx)", (unsigned long) addr));
 
@@ -1052,7 +1085,14 @@ char *addr;
 		GETMARK(c);
 		if (c == SX_VL_UNDEF) {
 			TRACEME(("(#%d) undef value", i));
-			sv = &sv_undef;
+			/*
+			 * Due to a bug in hv_store(), it's not possible to pass &sv_undef
+			 * to hv_store() as a value, otherwise the associated key will
+			 * not be creatable any more. -- RAM, 14/01/97
+			 */
+			if (!sv_h_undef)
+				sv_h_undef = newSVsv(&sv_undef);
+			sv = SvREFCNT_inc(sv_h_undef);
 		} else if (c == SX_VALUE) {
 			TRACEME(("(#%d) value", i));
 			sv = retrieve(f);
@@ -1197,8 +1237,10 @@ FILE *f;
 		if (!svh)
 			croak("Object 0x%lx should have been retrieved already",
 				(unsigned long) addr);
-		TRACEME(("already retrieved at 0x%lx", (unsigned long) *svh));
-		return *svh;	/* The SV pointer where that object was retrieved */
+		sv = *svh;
+		TRACEME(("already retrieved at 0x%lx", (unsigned long) sv));
+		SvREFCNT_inc(sv);	/* One more reference to this same sv */
+		return sv;			/* The SV pointer where object was retrieved */
 	}
 
 	/*
@@ -1242,8 +1284,8 @@ FILE *f;
 		(void) sv_bless(sv, stash);
 	}
 
-	TRACEME(("ok (retrieved 0x%lx, %d ref, %s)", (unsigned long) sv,
-		SvREFCNT(sv), sv_reftype(sv, FALSE)));
+	TRACEME(("ok (retrieved 0x%lx, refcnt=%d, %s)", (unsigned long) sv,
+		SvREFCNT(sv) - 1, sv_reftype(sv, FALSE)));
 
 	return sv;	/* Ok */
 }
