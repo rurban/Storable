@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.4.1.5 1997/03/25 10:20:42 ram Exp $
+ * $Id: Storable.xs,v 0.4.1.6 1997/06/03 07:39:58 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,10 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.4.1.6  1997/06/03  07:39:58  ram
+ * patch7: reworked store/retrieve macros to allow memory operations
+ * patch7: added the freeze/thaw interface, and dclone as a bonus
+ *
  * Revision 0.4.1.5  1997/03/25  10:20:42  ram
  * patch5: empty scalar strings are now "defined" at retrieval time
  *
@@ -108,6 +112,24 @@
 #define LG_SCALAR	255		/* Large scalar length limit */
 
 /*
+ * The following structure is used for hash table key retrieval. Since, when
+ * retrieving objects, we'll be facing blessed hash references, it's best
+ * to pre-allocate that buffer once and resize it as the need arises, never
+ * freeing it (keys will be saved away someplace else anyway, so even large
+ * keys are not enough a motivation to reclaim that space).
+ *
+ * This structure is also used for memory store/retrieve operations which
+ * happen in a fixed place before being malloc'ed elsewhere if persistency
+ * is required. Hence the aptr pointer.
+ */
+struct extendable {
+	char *arena;		/* Will hold hash key strings, resized as needed */
+	STRLEN asiz;		/* Size of aforementionned buffer */
+	char *aptr;			/* Arena pointer, for in-place read/write ops */
+	char *aend;			/* When reading only, first invalid address */
+};
+
+/*
  * At store time:
  * This hash table records the objects which have already been stored.
  * Those are referred to as SX_OBJECT in the file, and their "tag" (i.e.
@@ -120,23 +142,18 @@
  * SX_OBJECT is found bearing that same tag.
  */
 
-/* XXX multi-threading needs context for the following variables */
+/*
+ * XXX multi-threading needs context for the following variables...
+ */
 static HV *seen;			/* which objects have been seen */
 static int netorder = 0;	/* true if network order used */
 static int forgive_me = -1;	/* whether to be forgiving... */
+struct extendable keybuf;	/* for hash key retrieval */
+struct extendable membuf;	/* for memory store/retrieve operations */
 
 /*
- * The following structure is used for hash table key retrieval. Since, when
- * retrieving objects, we'll be facing blessed hash references, it's best
- * to pre-allocate that buffer once and resize it as the need arises, never
- * freeing it (keys will be saved away someplace else anyway, so even large
- * keys are not enough a motivation to reclaim that space).
+ * key buffer handling
  */
-static struct {
-	char *arena;		/* Will hold hash key strings, resized as needed */
-	STRLEN asiz;		/* Size of aforementionned buffer */
-} keybuf;
-
 #define kbuf	keybuf.arena
 #define ksiz	keybuf.asiz
 #define KBUFINIT() do {					\
@@ -144,13 +161,131 @@ static struct {
 		TRACEME(("** allocating kbuf of 128 bytes")); \
 		New(10003, kbuf, 128, char);	\
 		ksiz = 128;						\
-	}} while (0)
+	}									\
+} while (0)
 #define KBUFCHK(x) do {			\
 	if (x >= ksiz) {			\
 		TRACEME(("** extending kbuf to %d bytes", x+1)); \
 		Renew(kbuf, x+1, char);	\
 		ksiz = x+1;				\
-	}} while (0)
+	}							\
+} while (0)
+
+/*
+ * memory buffer handling
+ */
+#define mbase	membuf.arena
+#define msiz	membuf.asiz
+#define mptr	membuf.aptr
+#define mend	membuf.aend
+#define MGROW	(1 << 13)
+#define MMASK	(MGROW - 1)
+
+#define round_mgrow(x)	\
+	((unsigned long) (((unsigned long) (x) + MMASK) & ~MMASK))
+#define trunc_int(x)	\
+	((unsigned long) ((unsigned long) (x) & ~(sizeof(int)-1)))
+#define int_aligned(x)	\
+	((unsigned long) (x) == trunc_int(x))
+
+#define MBUF_INIT(x) do {				\
+	if (!mbase) {						\
+		TRACEME(("** allocating mbase of %d bytes", MGROW)); \
+		New(10003, mbase, MGROW, char);	\
+		msiz = MGROW;					\
+	}									\
+	mptr = mbase;						\
+	if (x)								\
+		mend = mbase + x;				\
+} while (0)
+
+#define MBUF_SIZE()	(mptr - mbase)
+
+#define MBUF_LOAD(v) do {				\
+	if (!SvPOK(v))						\
+		croak("Not a scalar string");	\
+	mptr = mbase = SvPV(v, msiz);		\
+	mend = mbase + msiz;				\
+} while (0)
+
+#define MBUF_XTEND(x) do {			\
+	int nsz = (int) round_mgrow((x)+msiz);	\
+	int offset = mptr - mbase;		\
+	TRACEME(("** extending mbase to %d bytes", nsz));	\
+	Renew(mbase, nsz, char);		\
+	msiz = nsz;						\
+	mptr = mbase + offset;			\
+	mend = mbase + nsz;				\
+} while (0)
+
+#define MBUF_CHK(x) do {			\
+	if ((mptr + (x)) > mend)		\
+		MBUF_XTEND(x);				\
+} while (0)
+
+#define MBUF_GETC(x) do {			\
+	if (mptr < mend)				\
+		x = (int) *mptr++;			\
+	else							\
+		return (SV *) 0;			\
+} while (0)
+
+#define MBUF_GETINT(x) do {				\
+	if ((mptr + sizeof(int)) <= mend) {	\
+		if (int_aligned(mptr))			\
+			x = *(int *) mptr;			\
+		else							\
+			memcpy(&x, mptr, sizeof(int));	\
+		mptr += sizeof(int);			\
+	} else								\
+		return (SV *) 0;				\
+} while (0)
+
+#define MBUF_READ(x,s) do {			\
+	if ((mptr + (s)) <= mend) {		\
+		memcpy(x, mptr, s);			\
+		mptr += s;					\
+	} else							\
+		return (SV *) 0;			\
+} while (0)
+
+#define MBUF_SAFEREAD(x,s,z) do {	\
+	if ((mptr + (s)) <= mend) {		\
+		memcpy(x, mptr, s);			\
+		mptr += s;					\
+	} else {						\
+		sv_free(z);					\
+		return (SV *) 0;			\
+	}								\
+} while (0)
+
+#define MBUF_PUTC(c) do {			\
+	if (mptr < mend)				\
+		*mptr++ = (char) c;			\
+	else {							\
+		MBUF_XTEND(1);				\
+		*mptr++ = (char) c;			\
+	}								\
+} while (0)
+
+#define MBUF_PUTINT(i) do {			\
+	MBUF_CHK(sizeof(int));			\
+	if (int_aligned(mptr))			\
+		*(int *) mptr = i;			\
+	else							\
+		memcpy(mptr, &i, sizeof(int));	\
+	mptr += sizeof(int);			\
+} while (0)
+
+#define MBUF_WRITE(x,s) do {		\
+	MBUF_CHK(s);					\
+	memcpy(mptr, x, s);				\
+	mptr += s;						\
+} while (0)
+
+
+#define mbuf	membuf.arena
+#define msiz	membuf.asiz
 
 #define svis_REF	0
 #define svis_SCALAR	1
@@ -163,30 +298,42 @@ static char *magicstr = "perl-store";	/* Used as a magic number */
 /*
  * Useful store shortcuts...
  */
-#define PUTMARK(x) do {				\
-	if (PerlIO_putc(f, x) == EOF)	\
-		return -1;					\
+#define PUTMARK(x) do {					\
+	if (!f)								\
+		MBUF_PUTC(x);					\
+	else if (PerlIO_putc(f, x) == EOF)	\
+		return -1;						\
 	} while (0)
 
 #ifdef HAS_HTONL
 #define WLEN(x)	do {				\
 	if (netorder) {					\
 		int y = (int) htonl(x);		\
-		if (PerlIO_write(f, &y, sizeof(y)) != sizeof(y))	\
+		if (!f)						\
+			MBUF_PUTINT(x);			\
+		else if (PerlIO_write(f, &y, sizeof(y)) != sizeof(y))	\
 			return -1;				\
-	} else if (PerlIO_write(f, &x, sizeof(x)) != sizeof(x))	\
-		return -1;					\
-	} while (0)
+	} else {						\
+		if (!f)						\
+			MBUF_PUTINT(x);			\
+		else if (PerlIO_write(f, &x, sizeof(x)) != sizeof(x))	\
+			return -1;				\
+	}								\
+} while (0)
 #else
 #define WLEN(x)	do {				\
-	if (PerlIO_write(f, &x, sizeof(x)) != sizeof(x))	\
+	if (!f)							\
+		MBUF_PUTINT(x);				\
+	else if (PerlIO_write(f, &x, sizeof(x)) != sizeof(x))	\
 		return -1;					\
 	} while (0)
 #endif
 
-#define WRITE(x,y) do {					\
-	if (PerlIO_write(f, x, y) != y)		\
-		return -1;						\
+#define WRITE(x,y) do {						\
+	if (!f)									\
+		MBUF_WRITE(x,y);					\
+	else if (PerlIO_write(f, x, y) != y)	\
+		return -1;							\
 	} while (0)
 
 #define STORE_SCALAR(pv, len) do {		\
@@ -206,35 +353,50 @@ static char *magicstr = "perl-store";	/* Used as a magic number */
 /*
  * Useful retrieve shortcuts...
  */
+
+#define GETCHAR() \
+	(f ? PerlIO_getc(f) : (mptr >= mend ? EOF : (int) *mptr++))
+
 #define GETMARK(x) do {						\
-	if ((x = PerlIO_getc(f)) == EOF)		\
+	if (!f)									\
+		MBUF_GETC(x);						\
+	else if ((x = PerlIO_getc(f)) == EOF)	\
 		return (SV *) 0;					\
-	} while (0)
+} while (0)
 
 #ifdef HAS_NTOHL
 #define RLEN(x)	do {					\
-	if (PerlIO_read(f, &x, sizeof(x)) != sizeof(x))		\
+	if (!f)								\
+		MBUF_GETINT(x);					\
+	else if (PerlIO_read(f, &x, sizeof(x)) != sizeof(x))	\
 		return (SV *) 0;				\
 	if (netorder)						\
 		x = (int) ntohl(x);				\
-	} while (0)
+} while (0)
 #else
 #define RLEN(x)	do {					\
-	if (PerlIO_read(f, &x, sizeof(x)) != sizeof(x))		\
+	if (!f)								\
+		MBUF_GETINT(x);					\
+	else if (PerlIO_read(f, &x, sizeof(x)) != sizeof(x))	\
 		return (SV *) 0;				\
-	} while (0)
+} while (0)
 #endif
 
 #define READ(x,y) do {					\
-	if (PerlIO_read(f, x, y) != y)		\
+	if (!f)								\
+		MBUF_READ(x, y);				\
+	else if (PerlIO_read(f, x, y) != y)	\
 		return (SV *) 0;				\
-	} while (0)
+} while (0)
 
 #define SAFEREAD(x,y,z) do { 				\
-	if (PerlIO_read(f, x, y) != y)	 {		\
+	if (!f)									\
+		MBUF_SAFEREAD(x,y,z);				\
+	else if (PerlIO_read(f, x, y) != y)	 {	\
 		sv_free(z);							\
 		return (SV *) 0;					\
-	}} while (0)
+	}										\
+} while (0)
 
 #define SEEN(z,y) do {						\
 	if (!y)									\
@@ -342,6 +504,7 @@ SV *sv;
 			unsigned char siv = (unsigned char) (iv + 128);	/* [0,255] */
 			PUTMARK(SX_BYTE);
 			PUTMARK(siv);
+			TRACEME(("small integer stored as %d", siv));
 		} else if (netorder) {
 			int niv;
 #ifdef HAS_HTONL
@@ -369,7 +532,8 @@ SV *sv;
 	string:
 
 		STORE_SCALAR(pv, len);
-		TRACEME(("ok (scalar 0x%lx, length = %d)", (unsigned long) sv, len));
+		TRACEME(("ok (scalar 0x%lx '%s', length = %d)",
+			(unsigned long) sv, SvPVX(sv), len));
 
 	} else
 		croak("Can't determine type of %s(0x%lx)", sv_reftype(sv, FALSE),
@@ -733,7 +897,8 @@ int use_network_order;
 
 	TRACEME(("magic_write"));
 
-	WRITE(magicstr, strlen(magicstr));	/* Don't write final \0 */
+	if (f)
+		WRITE(magicstr, strlen(magicstr));	/* Don't write final \0 */
 
 	c = use_network_order ? '\01' : '\0';
 	PUTMARK(c);
@@ -800,6 +965,50 @@ int use_network_order;
 }
 
 /*
+ * mbuf2sv
+ *
+ * Build a new SV out of the content of the internal memory buffer.
+ */
+static SV *mbuf2sv()
+{
+	return newSVpv(mbase, MBUF_SIZE());
+}
+
+/*
+ * mstore
+ *
+ * Store the transitive data closure of given object to memory.
+ * Returns undef on error, a scalar value containing the data otherwise.
+ */
+SV *mstore(sv)
+SV *sv;
+{
+	TRACEME(("mstore"));
+	MBUF_INIT(0);
+	if (!do_store(0, sv, FALSE))		/* Not in network order */
+		return &sv_undef;
+
+	return mbuf2sv();
+}
+
+/*
+ * net_mstore
+ *
+ * Same as mstore(), but network order is used for integers and doubles are
+ * emitted as strings.
+ */
+SV *net_mstore(sv)
+SV *sv;
+{
+	TRACEME(("net_mstore"));
+	MBUF_INIT(0);
+	if (!do_store(0, sv, TRUE))	/* Use network order */
+		return &sv_undef;
+
+	return mbuf2sv();
+}
+
+/*
  * pstore
  *
  * Store the transitive data closure of given object to disk.
@@ -810,7 +1019,7 @@ PerlIO *f;
 SV *sv;
 {
 	TRACEME(("pstore"));
-	return do_store(f, sv, FALSE);		/* Not in network order */
+	return do_store(f, sv, FALSE);	/* Not in network order */
 
 }
 
@@ -825,7 +1034,7 @@ PerlIO *f;
 SV *sv;
 {
 	TRACEME(("net_pstore"));
-	return do_store(f, sv, TRUE);				/* Use network order */
+	return do_store(f, sv, TRUE);			/* Use network order */
 }
 
 /*
@@ -968,6 +1177,7 @@ char *addr;
 		 */
 		sv_upgrade(sv, SVt_PV);
 		SvGROW(sv, 1);
+		*SvEND(sv) = '\0';			/* Ensure it's null terminated anyway */
 		TRACEME(("ok (retrieve_scalar empty at 0x%lx)", (unsigned long) sv));
 	} else {
 		/*
@@ -977,11 +1187,11 @@ char *addr;
 		 * this way, it's worth the hassle and risk.
 		 */
 		SAFEREAD(SvPVX(sv), len, sv);
-		SvCUR_set(sv, len);				/* Record C string length */
+		SvCUR_set(sv, len);			/* Record C string length */
+		*SvEND(sv) = '\0';			/* Ensure it's null terminated anyway */
 		TRACEME(("small scalar len %d '%s'", len, SvPVX(sv)));
 	}
 
-	*SvEND(sv) = '\0';				/* Ensure it's null terminated anyway */
 	(void) SvPOK_only(sv);			/* Validate string pointer */
 	SvTAINT(sv);					/* External data cannot be trusted */
 
@@ -1085,10 +1295,11 @@ char *addr;
 	TRACEME(("retrieve_byte (0x%lx)", (unsigned long) addr));
 
 	GETMARK(siv);
-	sv = newSViv(siv - 128);
+	TRACEME(("small integer read as %d", (unsigned char) siv));
+	sv = newSViv((unsigned char) siv - 128);
 	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
 
-	TRACEME(("byte %d", (int) siv - 128));
+	TRACEME(("byte %d", (unsigned char) siv - 128));
 	TRACEME(("ok (retrieve_byte at 0x%lx)", (unsigned long) sv));
 
 	return sv;
@@ -1311,11 +1522,13 @@ PerlIO *f;
 	int c;
 	int use_network_order;
 
-	READ(buf, len);		/* Not null-terminated */
-	buf[len] = '\0';	/* Is now */
+	if (f) {
+		READ(buf, len);		/* Not null-terminated */
+		buf[len] = '\0';	/* Is now */
 
-	if (strcmp(buf, magicstr))
-		croak("File is not a perl storable");
+		if (strcmp(buf, magicstr))
+			croak("File is not a perl storable");
+	}
 
 	GETMARK(use_network_order);
 	if (netorder = use_network_order)
@@ -1401,7 +1614,7 @@ PerlIO *f;
 	 * hash table key retrieval.
 	 */
 
-	while ((type = PerlIO_getc(f)) != SX_STORED) {
+	while ((type = GETCHAR()) != SX_STORED) {
 		I32 len;
 		HV *stash;
 		switch (type) {
@@ -1431,16 +1644,17 @@ PerlIO *f;
 }
 
 /*
- * pretrieve
+ * do_retrieve
  *
  * Retrieve data held in file and return the root object.
+ * Common routine for pretrieve and mretrieve.
  */
-SV *pretrieve(f)
+static SV *do_retrieve(f)
 PerlIO *f;
 {
 	SV *sv;
 
-	TRACEME(("pretrieve"));
+	TRACEME(("do_retrieve"));
 	KBUFINIT();			 	/* Allocate hash key reading pool once */
 
 	/*
@@ -1475,6 +1689,66 @@ PerlIO *f;
 	return sv_is_object(sv) ? sv : newRV(sv);
 }
 
+/*
+ * pretrieve
+ *
+ * Retrieve data held in file and return the root object, undef on error.
+ */
+SV *pretrieve(f)
+PerlIO *f;
+{
+	TRACEME(("pretrieve"));
+	return do_retrieve(f);
+}
+
+/*
+ * mretrieve
+ *
+ * Retrieve data held in scalar and return the root object, undef on error.
+ */
+SV *mretrieve(sv)
+SV *sv;
+{
+	struct extendable mcommon;			/* Temporary save area for global */
+	SV *rsv;							/* Retrieved SV pointer */
+
+	TRACEME(("mretrieve"));
+	StructCopy(&membuf, &mcommon, struct extendable);
+
+	MBUF_LOAD(sv);
+	rsv = do_retrieve(0);
+
+	StructCopy(&mcommon, &membuf, struct extendable);
+	return rsv;
+}
+
+/*
+ * dclone
+ *
+ * Deep clone: returns a fresh copy of the original referenced SV tree.
+ *
+ * This is achieved by storing the object in memory and restoring from
+ * there. Not that efficient, but it should be faster than doing it from
+ * pure perl anyway.
+ */
+SV *dclone(sv)
+SV *sv;
+{
+	int size;
+
+	TRACEME(("dclone"));
+
+	MBUF_INIT(0);
+	if (!do_store(0, sv, FALSE))		/* Not in network order! */
+		return &sv_undef;				/* Error during store */
+
+	size = MBUF_SIZE();
+	TRACEME(("dclone stored %d bytes", size));
+
+	MBUF_INIT(size);
+	return do_retrieve(0);
+}
+
 MODULE = Storable	PACKAGE = Storable
 
 PROTOTYPES: ENABLE
@@ -1490,5 +1764,22 @@ FILE *	f
 SV *	obj
 
 SV *
+mstore(obj)
+SV *	obj
+
+SV *
+net_mstore(obj)
+SV *	obj
+
+SV *
 pretrieve(f)
 FILE *	f
+
+SV *
+mretrieve(sv)
+SV *	sv
+
+SV *
+dclone(sv)
+SV *	sv
+

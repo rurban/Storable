@@ -1,3 +1,11 @@
+Tue Jun  3 09:41:33 METDST 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Updated version number
+
+	Added freeze/thaw interface and dclone.
+
 Fri May 16 10:45:47 METDST 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

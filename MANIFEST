@@ -4,7 +4,10 @@ Makefile.PL                 Generic Makefile template
 Storable.pm                 The perl side of Storable
 Storable.xs                 The C side of Storable
 patchlevel.h                Records current patchlevel
+t/dclone.t                  Test deep cloning
 t/dump.pl                   Small utility to dump data structures
+t/freeze.t                  Test memory store (freeze/thaw) operations
 t/retrieve.t                Test retrieve operation
 t/store.t                   Test store operation
+t/forgive.t                 Test if $Storable::forgive_me works
 ChangeLog                   Changes since baseline

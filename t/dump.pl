@@ -1,4 +1,4 @@
-;# $Id: dump.pl,v 0.4 1997/01/15 18:20:11 ram Exp $
+;# $Id: dump.pl,v 0.4.1.1 1997/06/03 07:40:25 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,11 +6,15 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: dump.pl,v $
+;# Revision 0.4.1.1  1997/06/03  07:40:25  ram
+;# patch7: use Carp to report errors instead of plain die
+;#
 ;# Revision 0.4  1997/01/15  18:20:11  ram
 ;# Baseline for fourth netwide alpha release.
 ;#
 
 package dump;
+use Carp;
 
 %dump = (
 	'SCALAR'	=> 'dump_scalar',
@@ -22,7 +26,7 @@ package dump;
 # Given an object, dump its transitive data closure
 sub main'dump {
 	my ($object) = @_;
-	die "Not a reference!\n" unless ref($object);
+	croak "Not a reference!" unless ref($object);
 	local %dumped;
 	local %object;
 	local $count = 0;
@@ -67,7 +71,7 @@ sub recursive_dump {
 	# If the referenced was blessed, we bless it once the object is dumped.
 	# The retrieval code will perform the same on the last object retrieved.
 
-	die "Unknown simple type '$ref'\n" unless defined $dump{$ref};
+	croak "Unknown simple type '$ref'" unless defined $dump{$ref};
 	&{$dump{$ref}}($object);	# Dump object
 	&bless($bless) if $bless;	# Mark it as blessed, if necessary
 

@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.4.1.4 1997/05/16 08:44:54 ram Exp $
+;# $Id: Storable.pm,v 0.4.1.5 1997/06/03 07:38:44 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,6 +6,9 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.4.1.5  1997/06/03  07:38:44  ram
+;# patch7: added freeze/thaw interface and dclone
+;#
 ;# Revision 0.4.1.4  1997/05/16  08:44:54  ram
 ;# patch6: forgot that AutoLoader does not export its own AUTOLOAD
 ;# patch6: updated version number
@@ -29,13 +32,17 @@ require Exporter;
 package Storable; @ISA = qw(Exporter DynaLoader);
 
 @EXPORT = qw(store retrieve);
-@EXPORT_OK = qw(nstore store_fd nstore_fd retrieve_fd);
+@EXPORT_OK = qw(
+	nstore store_fd nstore_fd retrieve_fd
+	freeze nfreeze thaw
+	dclone
+);
 
 use AutoLoader;
 use Carp;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.4_06';
+$VERSION = '0.4_07';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 bootstrap Storable;
@@ -63,7 +70,7 @@ sub nstore {
 	return _store(1, @_);
 }
 
-# Internal store routine
+# Internal store to file routine
 sub _store {
 	my $netorder = shift;
 	my $self = shift;
@@ -101,7 +108,7 @@ sub nstore_fd {
 	return _store_fd(1, @_);
 }
 
-# Internal store routine
+# Internal store routine on opened file descriptor
 sub _store_fd {
 	my $netorder = shift;
 	my $self = shift;
@@ -117,6 +124,37 @@ sub _store_fd {
 	return $ret ? $ret : undef;
 }
 
+#
+# freeze
+#
+# Store oject and its hierarchy in memory and return a scalar
+# containing the result.
+#
+sub freeze {
+	_freeze(0, @_);
+}
+
+#
+# nfreeze
+#
+# Same as freeze but in network order.
+#
+sub nfreeze {
+	_freeze(1, @_);
+}
+
+# Internal freeze routine
+sub _freeze {
+	my $netorder = shift;
+	my $self = shift;
+	croak "Not a reference" unless ref($self);
+	croak "Too many arguments" unless @_ == 0;	# Watch out for @foo in arglist
+	my $ret;
+	# Call C routine mstore or net_mstore, depending on network order
+	eval { $ret = $netorder ? net_mstore($self) : mstore($self) };
+	croak $@ if $@ =~ s/\.?\n$/,/;
+	return $ret ? $ret : undef;
+}
 #
 # retrieve
 #
@@ -145,6 +183,20 @@ sub retrieve_fd {
 	croak "Not a valid file descriptor" unless defined $fd;
 	my $self;
 	eval { $self = pretrieve($file) };		# Call C routine
+	croak $@ if $@ =~ s/\.?\n$/,/;
+	return $self;
+}
+
+#
+# thaw
+#
+# Recreate objects in memory from an existing frozen image created
+# by freeze.
+#
+sub thaw {
+	my ($frozen) = @_;
+	my $self;
+	eval { $self = mretrieve($frozen) };	# Call C routine
 	croak $@ if $@ =~ s/\.?\n$/,/;
 	return $self;
 }
@@ -205,6 +257,25 @@ retrieve does not provide a reference to that object but rather the
 blessed object reference itself. (Otherwise, you'd get a reference
 to that blessed object).
 
+=head1 MEMORY STORE
+
+The Storable engine can also store data into a Perl scalar instead, to
+later retrieve them. This is mainly used to freeze a complex structure in
+some safe compact memory place (where it can possibly be sent to another
+process via some IPC, since freezing the structure also serializes it in
+effect). Later on, and maybe somewhere else, you can thaw the Perl scalar
+out and recreate the original complex structure in memory.
+
+Surprisingly, the routines to be called are named C<freeze> and C<thaw>.
+If you wish to send out the frozen scalar to another machine, use
+C<nfreeze> instead to get a portable image.
+
+Note that freezing an object structure and immediately thawing it
+actually achieves a deep cloning of that structure. Storable provides
+you with a C<dclone> interface which does not create that intermediary
+scalar but instead freezes the structure in some internal memory space
+and then immediatly thaws it out.
+
 =head1 SPEED
 
 The heart of Storable is written in C for decent speed. Extra low-level
@@ -215,11 +286,36 @@ Storage is usually faster than retrieval since the latter has to
 allocate the objects from memory and perform the relevant I/Os, whilst
 the former mainly performs I/Os.
 
-On my HP 9000/712 machine running HPUX 9.03, I can store 1 Mbyte/s
-and I can retrieve at 0.86 Mbytes/s, approximatively
+On my HP 9000/712 machine running HPUX 9.03 and with perl 5.004, I can
+store 0.8 Mbyte/s and I can retrieve at 0.72 Mbytes/s, approximatively
 (CPU + system time).
 This was measured with Benchmark and the I<Magic: The Gathering>
 database from Tom Christiansen (1.9 Mbytes).
+
+=head1 EXAMPLES
+
+Here are some code samples showing a possible usage of Storable:
+
+	use Storable qw(store retrieve freeze thaw dclone);
+
+	%color = ('Blue' => 0.1, 'Red' => 0.8, 'Black' => 0, 'White' => 1);
+
+	store(\%color, '/tmp/colors') or die "Can't store %a in /tmp/colors!\n";
+
+	$colref = retrieve('/tmp/colors');
+	die "Unable to retrieve from /tmp/colors!\n" unless defined $colref;
+	printf "Blue is still %lf\n", $colref->{'Blue'};
+
+	$colref2 = dclone(\%color);
+
+	$str = freeze(\%color);
+	printf "Serialization of %%color is %d bytes long.\n", length($str);
+	$colref3 = thaw($str);
+
+which prints (on my machine):
+
+	Blue is still 0.100000
+	Serialization of %color is 102 bytes long.
 
 =head1 WARNING
 
