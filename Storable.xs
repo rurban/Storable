@@ -1,62 +1,10 @@
 /*
- * Store and retrieve mechanism.
- */
-
-/*
- * $Id: Storable.xs,v 2.02 2002/05/28 20:22:27 ams Exp $
+ *  Store and retrieve mechanism.
  *
  *  Copyright (c) 1995-2000, Raphael Manfredi
  *  
  *  You may redistribute only under the same terms as Perl 5, as specified
  *  in the README file that comes with the distribution.
- *
- * $Log: Storable.xs,v $
- * Revision 2.02  2002/05/28 20:22:27  ams
- * 1. Rework file header handling. (Nicholas Clark)
- * 2. Add integer.t and safer integer storing code. (Nicholas Clark)
- *
- * Revision 2.00  2002/05/18 16:00:57  ams
- * Import Storable 2.00 from perl-current.
- *
- * Revision 1.0.1.10  2001/08/28 21:52:14  ram
- * patch13: removed spurious debugging messages
- *
- * Revision 1.0.1.9  2001/07/01 11:25:02  ram
- * patch12: fixed memory corruption on croaks during thaw()
- * patch12: made code compile cleanly with -Wall (Jarkko Hietaniemi)
- * patch12: changed tagnum and classnum from I32 to IV in context
- *
- * Revision 1.0.1.8  2001/03/15 00:20:55  ram
- * patch11: last version was wrongly compiling with assertions on
- *
- * Revision 1.0.1.7  2001/02/17 12:25:26  ram
- * patch8: now bless objects ASAP at retrieve time
- * patch8: added support for blessed ref to tied structures
- *
- * Revision 1.0.1.6  2001/01/03 09:40:40  ram
- * patch7: prototype and casting cleanup
- * patch7: trace offending package when overloading cannot be restored
- * patch7: made context cleanup safer to avoid dup freeing
- *
- * Revision 1.0.1.5  2000/11/05 17:21:24  ram
- * patch6: fixed severe "object lost" bug for STORABLE_freeze returns
- *
- * Revision 1.0.1.4  2000/10/26 17:11:04  ram
- * patch5: auto requires module of blessed ref when STORABLE_thaw misses
- *
- * Revision 1.0.1.3  2000/09/29 19:49:57  ram
- * patch3: avoid using "tainted" and "dirty" since Perl remaps them via cpp
- *
- * Revision 1.0.1.2  2000/09/28 21:43:10  ram
- * patch2: perls before 5.004_04 lack newSVpvn
- *
- * Revision 1.0.1.1  2000/09/17 16:47:49  ram
- * patch1: now only taint retrieved data when source was tainted
- * patch1: added support for UTF-8 strings
- * patch1: fixed store hook bug: was allocating class id too soon
- *
- * Revision 1.0  2000/09/01 19:40:41  ram
- * Baseline for first official release.
  *
  */
 
@@ -749,14 +697,49 @@ static const char magicstr[] = "pst0";		 /* Used as a magic number */
 #define MAGICSTR_BYTES  'p','s','t','0'
 #define OLDMAGICSTR_BYTES  'p','e','r','l','-','s','t','o','r','e'
 
+/* 5.6.x introduced the ability to have IVs as long long.
+   However, Configure still defined BYTEORDER based on the size of a long.
+   Storable uses the BYTEORDER value as part of the header, but doesn't
+   explicity store sizeof(IV) anywhere in the header.  Hence on 5.6.x built
+   with IV as long long on a platform that uses Configure (ie most things
+   except VMS and Windows) headers are identical for the different IV sizes,
+   despite the files containing some fields based on sizeof(IV)
+   Erk. Broken-ness.
+   5.8 is consistent - the following redifinition kludge is only needed on
+   5.6.x, but the interwork is needed on 5.8 while data survives in files
+   with the 5.6 header.
+
+*/
+
+#if defined (IVSIZE) && (IVSIZE == 8) && (LONGSIZE == 4)
+#ifndef NO_56_INTERWORK_KLUDGE
+#define USE_56_INTERWORK_KLUDGE
+#endif
+#if BYTEORDER == 0x1234
+#undef BYTEORDER
+#define BYTEORDER 0x12345678
+#else
+#if BYTEORDER == 0x4321
+#undef BYTEORDER
+#define BYTEORDER 0x87654321
+#endif
+#endif
+#endif
+
 #if BYTEORDER == 0x1234
 #define BYTEORDER_BYTES  '1','2','3','4'
 #else
 #if BYTEORDER == 0x12345678
 #define BYTEORDER_BYTES  '1','2','3','4','5','6','7','8'
+#ifdef USE_56_INTERWORK_KLUDGE
+#define BYTEORDER_BYTES_56  '1','2','3','4'
+#endif
 #else
 #if BYTEORDER == 0x87654321
 #define BYTEORDER_BYTES  '8','7','6','5','4','3','2','1'
+#ifdef USE_56_INTERWORK_KLUDGE
+#define BYTEORDER_BYTES_56  '4','3','2','1'
+#endif
 #else
 #if BYTEORDER == 0x4321
 #define BYTEORDER_BYTES  '4','3','2','1'
@@ -768,6 +751,9 @@ static const char magicstr[] = "pst0";		 /* Used as a magic number */
 #endif
 
 static const char byteorderstr[] = {BYTEORDER_BYTES, 0};
+#ifdef USE_56_INTERWORK_KLUDGE
+static const char byteorderstr_56[] = {BYTEORDER_BYTES_56, 0};
+#endif
 
 #define STORABLE_BIN_MAJOR	2		/* Binary major "version" */
 #define STORABLE_BIN_MINOR	5		/* Binary minor "version" */
@@ -3218,6 +3204,20 @@ static int magic_write(stcxt_t *cxt)
         (unsigned char) sizeof(char *),
 	(unsigned char) sizeof(NV)
     };
+#ifdef USE_56_INTERWORK_KLUDGE
+    static const unsigned char file_header_56[] = {
+        MAGICSTR_BYTES,
+        (STORABLE_BIN_MAJOR << 1) | 0,
+        STORABLE_BIN_WRITE_MINOR,
+        /* sizeof the array includes the 0 byte at the end:  */
+        (char) sizeof (byteorderstr_56) - 1,
+        BYTEORDER_BYTES_56,
+        (unsigned char) sizeof(int),
+	(unsigned char) sizeof(long),
+        (unsigned char) sizeof(char *),
+	(unsigned char) sizeof(NV)
+    };
+#endif
     const unsigned char *header;
     SSize_t length;
 
@@ -3227,8 +3227,16 @@ static int magic_write(stcxt_t *cxt)
         header = network_file_header;
         length = sizeof (network_file_header);
     } else {
-        header = file_header;
-        length = sizeof (file_header);
+#ifdef USE_56_INTERWORK_KLUDGE
+        if (SvTRUE(perl_get_sv("Storable::interwork_56_64bit", TRUE))) {
+            header = file_header_56;
+            length = sizeof (file_header_56);
+        } else
+#endif
+        {
+            header = file_header;
+            length = sizeof (file_header);
+        }
     }        
 
     if (!cxt->fio) {
@@ -5087,8 +5095,19 @@ static SV *magic_check(stcxt_t *cxt)
 
     TRACEME(("byte order '%.*s' %d", c, buf, c));
 
-    if ((c != (sizeof (byteorderstr) - 1)) || memNE(buf, byteorderstr, c))
-        CROAK(("Byte order is not compatible"));
+#ifdef USE_56_INTERWORK_KLUDGE
+    /* No point in caching this in the context as we only need it once per
+       retrieve, and we need to recheck it each read.  */
+    if (SvTRUE(perl_get_sv("Storable::interwork_56_64bit", TRUE))) {
+        if ((c != (sizeof (byteorderstr_56) - 1))
+            || memNE(buf, byteorderstr_56, c))
+            CROAK(("Byte order is not compatible"));
+    } else
+#endif
+    {
+        if ((c != (sizeof (byteorderstr) - 1)) || memNE(buf, byteorderstr, c))
+            CROAK(("Byte order is not compatible"));
+    }
 
     current = buf + c;
     
@@ -5593,6 +5612,9 @@ BOOT:
     /* Only disable the used only once warning if we are in debugging mode.  */
     gv_fetchpv("Storable::DEBUGME",   GV_ADDMULTI, SVt_PV);
 #endif
+#ifdef USE_56_INTERWORK_KLUDGE
+    gv_fetchpv("Storable::interwork_56_64bit",   GV_ADDMULTI, SVt_PV);
+#endif
 
 int
 pstore(f,obj)
@@ -5632,4 +5654,3 @@ is_storing()
 
 int
 is_retrieving()
-

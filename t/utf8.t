@@ -1,26 +1,9 @@
 #!./perl -w
-
-# $Id: utf8.t,v 2.02 2002/05/28 20:22:31 ams Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
 #  You may redistribute only under the same terms as Perl 5, as specified
 #  in the README file that comes with the distribution.
-#
-# $Log: utf8.t,v $
-# Revision 2.02  2002/05/28 20:22:31  ams
-# 1. Rework file header handling. (Nicholas Clark)
-# 2. Add integer.t and safer integer storing code. (Nicholas Clark)
-#
-# Revision 2.00  2002/05/18 16:00:59  ams
-# Import Storable 2.00 from perl-current.
-#
-# Revision 1.0.1.2  2000/09/28 21:44:17  ram
-# patch2: fixed stupid typo
-#
-# Revision 1.0.1.1  2000/09/17 16:48:12  ram
-# patch1: created.
-#
 #
 
 sub BEGIN {

@@ -1,8 +1,4 @@
 #!./perl
-#
-# $Id: utf8hash.t,v 2.02 2002/05/28 20:22:31 ams Exp $
-#
-#
 
 sub BEGIN {
     if ($] < 5.007) {
@@ -12,6 +8,7 @@ sub BEGIN {
     if ($ENV{PERL_CORE}){
 	chdir('t') if -d 't';
 	@INC = ('.', '../lib');
+	push @INC, "::lib:$MacPerl::Architecture:" if $^O eq 'MacOS';
     } else {
 	unshift @INC, 't';
     }

@@ -1,5 +1,4 @@
 #!./perl -w
-
 #
 #  Copyright 2002, Larry Wall.
 #  
@@ -97,4 +96,3 @@ for $Storable::canonical (0, 1) {
   my $object = \%hash;
   # bless {}, "Restrict_Test";
 }
-

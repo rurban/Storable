@@ -1,25 +1,9 @@
 #!./perl
-
-# $Id: freeze.t,v 2.02 2002/05/28 20:22:31 ams Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
 #  You may redistribute only under the same terms as Perl 5, as specified
 #  in the README file that comes with the distribution.
-#
-# $Log: freeze.t,v $
-# Revision 2.02  2002/05/28 20:22:31  ams
-# 1. Rework file header handling. (Nicholas Clark)
-# 2. Add integer.t and safer integer storing code. (Nicholas Clark)
-#
-# Revision 2.00  2002/05/18 16:00:59  ams
-# Import Storable 2.00 from perl-current.
-#
-# Revision 1.0.1.1  2001/07/01 11:25:16  ram
-# patch12: added test cases for mem corruption during thaw()
-#
-# Revision 1.0  2000/09/01 19:40:41  ram
-# Baseline for first official release.
 #
 
 sub BEGIN {
@@ -152,4 +136,3 @@ ok 18, !$@;
 
 thaw $frozen;			# used to segfault here
 ok 19, 1;
-

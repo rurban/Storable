@@ -1,5 +1,4 @@
 #!./perl -w
-
 #
 #  Copyright 2002, Larry Wall.
 #
@@ -509,4 +508,3 @@ M!049``````0*!H.!HJ.3A0`````&@X&BHY.%"@>#B$>CA8&D``````>#B$>C
 FA8&D%P?B@XB3EHMS`@````;B@XB3EM\7!-QD<E4`````!-QD<E4`
 
 end
-

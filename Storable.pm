@@ -1,70 +1,9 @@
-;# $Id: Storable.pm,v 2.02 2002/05/28 20:22:27 ams Exp $
-;#
-;#  Copyright (c) 1995-2000, Raphael Manfredi
-;#  
-;#  You may redistribute only under the same terms as Perl 5, as specified
-;#  in the README file that comes with the distribution.
-;#
-;# $Log: Storable.pm,v $
-;# Revision 2.02  2002/05/28 20:22:27  ams
-;# 1. Rework file header handling. (Nicholas Clark)
-;# 2. Add integer.t and safer integer storing code. (Nicholas Clark)
-;#
-;# Revision 2.01  2002/05/21 05:09:32  ams
-;# 1. Declare correct version for Test::More dependency. (Autrijus Tang)
-;# 2. Install in core library directory. (Tatsuhiko Miyagawa)
-;# 3. Mention $canonical in Storable.pm to suppress warning. (Nicholas Clark)
-;#
-;# Revision 2.00  2002/05/18 16:00:57  ams
-;# Import Storable 2.00 from perl-current.
-;#
-;# Revision 1.0.1.13  2001/12/01 13:34:49  ram
-;# patch14: avoid requiring Fcntl upfront, useful to embedded runtimes
-;# patch14: store_fd() will now correctly autoflush file if needed
-;#
-;# Revision 1.0.1.12  2001/08/28 21:51:51  ram
-;# patch13: fixed truncation race with lock_retrieve() in lock_store()
-;#
-;# Revision 1.0.1.11  2001/07/01 11:22:14  ram
-;# patch12: systematically use "=over 4" for POD linters
-;# patch12: updated version number
-;#
-;# Revision 1.0.1.10  2001/03/15 00:20:25  ram
-;# patch11: updated version number
-;#
-;# Revision 1.0.1.9  2001/02/17 12:37:32  ram
-;# patch10: forgot to increase version number at previous patch
-;#
-;# Revision 1.0.1.8  2001/02/17 12:24:37  ram
-;# patch8: fixed incorrect error message
-;#
-;# Revision 1.0.1.7  2001/01/03 09:39:02  ram
-;# patch7: added CAN_FLOCK to determine whether we can flock() or not
-;#
-;# Revision 1.0.1.6  2000/11/05 17:20:25  ram
-;# patch6: increased version number
-;#
-;# Revision 1.0.1.5  2000/10/26 17:10:18  ram
-;# patch5: documented that store() and retrieve() can return undef
-;# patch5: added paragraph explaining the auto require for thaw hooks
-;#
-;# Revision 1.0.1.4  2000/10/23 18:02:57  ram
-;# patch4: protected calls to flock() for dos platform
-;# patch4: added logcarp emulation if they don't have Log::Agent
-;#
-;# Revision 1.0.1.3  2000/09/29 19:49:01  ram
-;# patch3: updated version number
-;#
-;# Revision 1.0.1.2  2000/09/28 21:42:51  ram
-;# patch2: added lock_store lock_nstore lock_retrieve
-;#
-;# Revision 1.0.1.1  2000/09/17 16:46:21  ram
-;# patch1: documented that doubles are stringified by nstore()
-;# patch1: added Salvador Ortiz Garcia in CREDITS section
-;#
-;# Revision 1.0  2000/09/01 19:40:41  ram
-;# Baseline for first official release.
-;#
+#
+#  Copyright (c) 1995-2000, Raphael Manfredi
+#  
+#  You may redistribute only under the same terms as Perl 5, as specified
+#  in the README file that comes with the distribution.
+#
 
 require DynaLoader;
 require Exporter;
@@ -82,7 +21,7 @@ package Storable; @ISA = qw(Exporter DynaLoader);
 use AutoLoader;
 use vars qw($canonical $forgive_me $VERSION);
 
-$VERSION = '2.02';
+$VERSION = '2.03';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 #
@@ -906,6 +845,69 @@ C<Storable::drop_utf8> is a blunt tool.  There is no facility either to
 return B<all> strings as utf8 sequences, or to attempt to convert utf8
 data back to 8 bit and C<croak()> if the conversion fails.
 
+Prior to Storable 2.01, no distinction was made between signed and
+unsigned integers on storing.  By default Storable prefers to store a
+scalars string representation (if it has one) so this would only cause
+problems when storing large unsigned integers that had never been coverted
+to string or floating point.  In other words values that had been generated
+by integer operations such as logic ops and then not used in any string or
+arithmetic context before storing.
+
+=head2 64 bit data in perl 5.6.0 and 5.6.1
+
+This section only applies to you if you have existing data written out
+by Storable 2.02 or earlier on perl 5.6.0 or 5.6.1 on Unix or Linux which
+has been configured with 64 bit integer support (not the default)
+If you got a precompiled perl, rather than running Configure to build
+your own perl from source, then it almost certainly does not affect you,
+and you can stop reading now (unless you're curious). If you're using perl
+on Windows it does not affect you.
+
+Storable writes a file header which contains the sizes of various C
+language types for the C compiler that built Storable (when not writing in
+network order), and will refuse to load files written by a Storable not
+on the same (or compatible) architecture.  This check and a check on
+machine byteorder is needed because the size of various fields in the file
+are given by the sizes of the C language types, and so files written on
+different architectures are incompatible.  This is done for increased speed.
+(When writing in network order, all fields are written out as standard
+lengths, which allows full interworking, but takes longer to read and write)
+
+Perl 5.6.x introduced the ability to optional configure the perl interpreter
+to use C's C<long long> type to allow scalars to store 64 bit integers on 32
+bit systems.  However, due to the way the Perl configuration system
+generated the C configuration files on non-Windows platforms, and the way
+Storable generates its header, nothing in the Storable file header reflected
+whether the perl writing was using 32 or 64 bit integers, despite the fact
+that Storable was storing some data differently in the file.  Hence Storable
+running on perl with 64 bit integers will read the header from a file
+written by a 32 bit perl, not realise that the data is actually in a subtly
+incompatible format, and then go horribly wrong (possibly crashing) if it
+encountered a stored integer.  This is a design failure.
+
+Storable has now been changed to write out and read in a file header with
+information about the size of integers.  It's impossible to detect whether
+an old file being read in was written with 32 or 64 bit integers (they have
+the same header) so it's impossible to automatically switch to a correct
+backwards compatibility mode.  Hence this Storable defaults to the new,
+correct behaviour.
+
+What this means is that if you have data written by Storable 1.x running
+on perl 5.6.0 or 5.6.1 configured with 64 bit integers on Unix or Linux
+then by default this Storable will refuse to read it, giving the error
+I<Byte order is not compatible>.  If you have such data then you you
+should set C<$Storable::interwork_56_64bit> to a true value to make this
+Storable read and write files with the old header.  You should also
+migrate your data, or any older perl you are communicating with, to this
+current version of Storable.
+
+If you don't have data written with specific configuration of perl described
+above, then you do not and should not do anything.  Don't set the flag -
+not only will Storable on an identically configured perl refuse to load them,
+but Storable a differently configured perl will load them believing them
+to be correct for it, and then may well fail or crash part way through
+reading them.
+
 =head1 CREDITS
 
 Thank you to (in chronological order):
@@ -951,4 +953,3 @@ Storable, and your message will be delayed while he forwards it to us.
 L<Clone>.
 
 =cut
-
