@@ -1,3 +1,14 @@
+Tue Jan 13 17:51:50 MET 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Updated version number.
+
+	added binmode() calls for systems where it matters.
+
+	Be sure to pass globs, not plain file strings, to C routines,
+	so that Storable can be used under the Perl debugger.
+
 Wed Nov  5 10:53:22 MET 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

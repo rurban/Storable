@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: store.t,v 0.5 1997/06/10 16:38:42 ram Exp $
+# $Id: store.t,v 0.5.1.1 1998/01/13 16:51:22 ram Exp $
 #
 #  Copyright (c) 1995-1997, Raphael Manfredi
 #  
@@ -8,6 +8,9 @@
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: store.t,v $
+# Revision 0.5.1.1  1998/01/13  16:51:22  ram
+# patch2: added binmode() calls for systems where it matters
+#
 # Revision 0.5  1997/06/10  16:38:42  ram
 # Baseline for fifth alpha release.
 #
@@ -60,6 +63,7 @@ print "ok 6\n";
 
 print "not " unless open(OUT, '>>t/store');
 print "ok 7\n";
+binmode OUT;
 
 print "not " unless defined store_fd(\@a, ::OUT);
 print "ok 8\n";
@@ -72,6 +76,7 @@ print "not " unless close(OUT);
 print "ok 11\n";
 
 print "not " unless open(OUT, 't/store');
+binmode OUT;
 
 $r = retrieve_fd(::OUT);
 print "not " unless defined $r;

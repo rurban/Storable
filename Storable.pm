@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.5.1.1 1997/11/05 09:47:42 ram Exp $
+;# $Id: Storable.pm,v 0.5.1.2 1998/01/13 16:51:10 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,6 +6,10 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.5.1.2  1998/01/13  16:51:10  ram
+;# patch2: added binmode() calls for systems where it matters
+;# patch2: be sure to pass globs, not plain file strings, to C routines
+;#
 ;# Revision 0.5.1.1  1997/11/05  09:47:42  ram
 ;# patch1: updated version number
 ;#
@@ -28,7 +32,7 @@ use AutoLoader;
 use Carp;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.5_01';
+$VERSION = '0.5_02';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 bootstrap Storable;
@@ -65,9 +69,10 @@ sub _store {
 	croak "Too many arguments" unless @_ == 1;	# Watch out for @foo in arglist
 	local *FILE;
 	open(FILE, ">$file") || croak "Can't create $file: $!";
+	binmode FILE;				# Archaic systems...
 	my $ret;
 	# Call C routine nstore or pstore, depending on network order
-	eval { $ret = $netorder ? net_pstore(FILE, $self) : pstore(FILE, $self) };
+	eval { $ret = $netorder ? net_pstore(*FILE, $self) : pstore(*FILE, $self) };
 	close(FILE) or $ret = undef;
 	unlink($file) or warn "Can't unlink $file: $!\n" if $@ || !defined $ret;
 	croak $@ if $@ =~ s/\.?\n$/,/;
@@ -151,8 +156,9 @@ sub retrieve {
 	my ($file) = @_;
 	local *FILE;
 	open(FILE, "$file") || croak "Can't open $file: $!";
+	binmode FILE;							# Archaic systems...
 	my $self;
-	eval { $self = pretrieve(FILE) };		# Call C routine
+	eval { $self = pretrieve(*FILE) };		# Call C routine
 	close(FILE);
 	croak $@ if $@ =~ s/\.?\n$/,/;
 	return $self;
@@ -318,6 +324,9 @@ the addresses in the retrieved objects, which are part of the stringified
 references, will probably differ from the original addresses. The
 topology of your structure is preserved, but not hidden semantics
 like those.
+
+On platforms where it matters, be sure to call C<binmode()> on the
+descriptors that you pass to Storable functions.
 
 =head1 BUGS
 
