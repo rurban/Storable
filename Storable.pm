@@ -1,49 +1,13 @@
-;# $Id: Storable.pm,v 0.6.1.11 2000/04/02 21:44:33 ram Exp $
+;# $Id: Storable.pm,v 0.7 2000/08/03 22:04:44 ram Exp $
 ;#
-;#  Copyright (c) 1995-1998, Raphael Manfredi
+;#  Copyright (c) 1995-2000, Raphael Manfredi
 ;#  
 ;#  You may redistribute only under the terms of the Artistic License,
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
-;# Revision 0.6.1.11  2000/04/02 21:44:33  ram
-;# patch11: increased version number
-;#
-;# Revision 0.6.1.10  2000/03/29 17:53:02  ram
-;# patch10: protect all $@ variables when eval {} used
-;# patch10: incremented version number
-;#
-;# Revision 0.6.1.9  2000/03/02 22:19:47  ram
-;# patch9: updated version number
-;#
-;# Revision 0.6.1.8  2000/02/10 18:47:11  ram
-;# patch8: documented last_op_in_netorder()
-;#
-;# Revision 0.6.1.7  1999/10/20 17:07:31  ram
-;# patch7: forgot to update VERSION
-;#
-;# Revision 0.6.1.6  1999/10/19 19:21:27  ram
-;# patch6: Added mention of japanese translation
-;#
-;# Revision 0.6.1.5  1999/09/14 20:11:22  ram
-;# patch5: updated version number
-;#
-;# Revision 0.6.1.4  1999/07/12  12:36:04  ram
-;# patch4: changed my e-mail to pobox, updated version number.
-;#
-;# Revision 0.6.1.3  1998/07/03  11:32:52  ram
-;# patch3: recent optimizations increased store() throughput
-;# patch3: increased revision number
-;#
-;# Revision 0.6.1.2  1998/06/22  08:58:53  ram
-;# patch2: added Jeff Gresham to the list of contributors
-;# patch2: increased revision number
-;#
-;# Revision 0.6.1.1  1998/06/12  09:45:09  ram
-;# patch1: increased version number
-;#
-;# Revision 0.6  1998/06/04  16:08:20  ram
-;# Baseline for first beta release.
+;# Revision 0.7  2000/08/03 22:04:44  ram
+;# Baseline for second beta release.
 ;#
 
 require DynaLoader;
@@ -58,11 +22,27 @@ package Storable; @ISA = qw(Exporter DynaLoader);
 );
 
 use AutoLoader;
-use Carp;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.611';
+$VERSION = '0.700';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
+
+#
+# Use of Log::Agent is optional
+#
+
+eval "use Log::Agent";
+
+unless (defined @Log::Agent::EXPORT) {
+	eval q{
+		sub logcroak {
+			require Carp;
+			Carp::croak(@_);
+		}
+	};
+}
+
+sub logcroak;
 
 bootstrap Storable;
 1;
@@ -77,7 +57,7 @@ __END__
 # removed.
 #
 sub store {
-	return _store(0, @_);
+	return _store(\&pstore, @_);
 }
 
 #
@@ -86,26 +66,26 @@ sub store {
 # Same as store, but in network order.
 #
 sub nstore {
-	return _store(1, @_);
+	return _store(\&net_pstore, @_);
 }
 
 # Internal store to file routine
 sub _store {
-	my $netorder = shift;
+	my $xsptr = shift;
 	my $self = shift;
 	my ($file) = @_;
-	croak "Not a reference" unless ref($self);
-	croak "Too many arguments" unless @_ == 1;	# Watch out for @foo in arglist
+	logcroak "not a reference" unless ref($self);
+	logcroak "too many arguments" unless @_ == 1;	# No @foo in arglist
 	local *FILE;
-	open(FILE, ">$file") || croak "Can't create $file: $!";
+	open(FILE, ">$file") || logcroak "can't create $file: $!";
 	binmode FILE;				# Archaic systems...
 	my $da = $@;				# Don't mess if called from exception handler
 	my $ret;
 	# Call C routine nstore or pstore, depending on network order
-	eval { $ret = $netorder ? net_pstore(*FILE, $self) : pstore(*FILE, $self) };
+	eval { $ret = &$xsptr(*FILE, $self) };
 	close(FILE) or $ret = undef;
 	unlink($file) or warn "Can't unlink $file: $!\n" if $@ || !defined $ret;
-	croak $@ if $@ =~ s/\.?\n$/,/;
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $ret ? $ret : undef;
 }
@@ -117,7 +97,7 @@ sub _store {
 # Returns undef if an I/O error occurred.
 #
 sub store_fd {
-	return _store_fd(0, @_);
+	return _store_fd(\&pstore, @_);
 }
 
 #
@@ -127,23 +107,23 @@ sub store_fd {
 #
 sub nstore_fd {
 	my ($self, $file) = @_;
-	return _store_fd(1, @_);
+	return _store_fd(\&net_pstore, @_);
 }
 
 # Internal store routine on opened file descriptor
 sub _store_fd {
-	my $netorder = shift;
+	my $xsptr = shift;
 	my $self = shift;
 	my ($file) = @_;
-	croak "Not a reference" unless ref($self);
-	croak "Too many arguments" unless @_ == 1;	# Watch out for @foo in arglist
+	logcroak "not a reference" unless ref($self);
+	logcroak "too many arguments" unless @_ == 1;	# No @foo in arglist
 	my $fd = fileno($file);
-	croak "Not a valid file descriptor" unless defined $fd;
+	logcroak "not a valid file descriptor" unless defined $fd;
 	my $da = $@;				# Don't mess if called from exception handler
 	my $ret;
 	# Call C routine nstore or pstore, depending on network order
-	eval { $ret = $netorder ? net_pstore($file, $self) : pstore($file, $self) };
-	croak $@ if $@ =~ s/\.?\n$/,/;
+	eval { $ret = &$xsptr($file, $self) };
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $ret ? $ret : undef;
 }
@@ -155,7 +135,7 @@ sub _store_fd {
 # containing the result.
 #
 sub freeze {
-	_freeze(0, @_);
+	_freeze(\&mstore, @_);
 }
 
 #
@@ -164,23 +144,24 @@ sub freeze {
 # Same as freeze but in network order.
 #
 sub nfreeze {
-	_freeze(1, @_);
+	_freeze(\&net_mstore, @_);
 }
 
 # Internal freeze routine
 sub _freeze {
-	my $netorder = shift;
+	my $xsptr = shift;
 	my $self = shift;
-	croak "Not a reference" unless ref($self);
-	croak "Too many arguments" unless @_ == 0;	# Watch out for @foo in arglist
+	logcroak "not a reference" unless ref($self);
+	logcroak "too many arguments" unless @_ == 0;	# No @foo in arglist
 	my $da = $@;				# Don't mess if called from exception handler
 	my $ret;
 	# Call C routine mstore or net_mstore, depending on network order
-	eval { $ret = $netorder ? net_mstore($self) : mstore($self) };
-	croak $@ if $@ =~ s/\.?\n$/,/;
+	eval { $ret = &$xsptr($self) };
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $ret ? $ret : undef;
 }
+
 #
 # retrieve
 #
@@ -190,13 +171,13 @@ sub _freeze {
 sub retrieve {
 	my ($file) = @_;
 	local *FILE;
-	open(FILE, "$file") || croak "Can't open $file: $!";
+	open(FILE, "$file") || logcroak "can't open $file: $!";
 	binmode FILE;							# Archaic systems...
 	my $self;
 	my $da = $@;							# Could be from exception handler
 	eval { $self = pretrieve(*FILE) };		# Call C routine
 	close(FILE);
-	croak $@ if $@ =~ s/\.?\n$/,/;
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $self;
 }
@@ -209,11 +190,11 @@ sub retrieve {
 sub retrieve_fd {
 	my ($file) = @_;
 	my $fd = fileno($file);
-	croak "Not a valid file descriptor" unless defined $fd;
+	logcroak "not a valid file descriptor" unless defined $fd;
 	my $self;
 	my $da = $@;							# Could be from exception handler
 	eval { $self = pretrieve($file) };		# Call C routine
-	croak $@ if $@ =~ s/\.?\n$/,/;
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $self;
 }
@@ -230,7 +211,7 @@ sub thaw {
 	my $self;
 	my $da = $@;							# Could be from exception handler
 	eval { $self = mretrieve($frozen) };	# Call C routine
-	croak $@ if $@ =~ s/\.?\n$/,/;
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $self;
 }
@@ -329,27 +310,19 @@ If you wish to send out the frozen scalar to another machine, use
 C<nfreeze> instead to get a portable image.
 
 Note that freezing an object structure and immediately thawing it
-actually achieves a deep cloning of that structure. Storable provides
-you with a C<dclone> interface which does not create that intermediary
-scalar but instead freezes the structure in some internal memory space
-and then immediatly thaws it out.
+actually achieves a deep cloning of that structure:
+
+    dclone(.) = thaw(freeze(.))
+
+Storable provides you with a C<dclone> interface which does not create
+that intermediary scalar but instead freezes the structure in some
+internal memory space and then immediatly thaws it out.
 
 =head1 SPEED
 
 The heart of Storable is written in C for decent speed. Extra low-level
 optimization have been made when manipulating perl internals, to
 sacrifice encapsulation for the benefit of a greater speed.
-
-Storage is now slightly slower than retrieval since the former has to
-also store data in a hash table to keep track of which objects
-have been stored already, whilst the latter uses an array instead of
-a hash table.
-
-On my HP 9000/712 machine running HPUX 9.03 and with perl 5.004, I can
-store 0.85 Mbyte/s and I can retrieve at 0.90 Mbytes/s, approximatively
-(CPU + system time).
-This was measured with Benchmark and the I<Magic: The Gathering>
-database from Tom Christiansen (1.6 Mbytes on disk).
 
 =head1 CANONICAL REPRESENTATION
 
@@ -364,11 +337,163 @@ creating lookup tables for complicated queries.
 Canonical order does not imply network order, those are two orthogonal
 settings.
 
+=head1 ERROR REPORTING
+
+Storable uses the "exception" paradigm, in that it does not try to workaround
+failures: if something bad happens, an exception is generated from the
+caller's perspective (see L<Carp> and C<croak()>).  Use eval {} to trap
+those exceptions.
+
+When Storable croaks, it tries to report the error via the C<logcroak()>
+routine from the C<Log::Agent> package, if it is available.
+
 =head1 WIZARDS ONLY
+
+=head2 Hooks
+
+Any class may define hooks that will be called during the serialization
+and deserialization process on objects that are instances of that class.
+Those hooks can redefine the way serialization is performed (and therefore,
+how the symetrical deserialization should be conducted).
+
+Since we said earlier:
+
+    dclone(.) = thaw(freeze(.))
+
+everything we say about hooks should also hold for deep cloning. However,
+hooks get to know whether the operation is a mere serialization, or a cloning.
+
+Therefore, when serializing hooks are involved,
+
+    dclone(.) <> thaw(freeze(.))
+
+Well, you could keep them in sync, but there's no guarantee it will always
+hold on classes somebody else wrote.  Besides, there is little to gain in
+doing so: a serializing hook could only keep one attribute of an object,
+which is probably not what should happen during a deep cloning of that
+same object.
+
+Here is the hooking interface:
+
+=over
+
+=item C<STORABLE_freeze> I<obj>, I<cloning>
+
+The serializing hook, called on the object during serialization.  It can be
+inherited, or defined in the class itself, like any other method.
+
+Arguments: I<obj> is the object to serialize, I<cloning> is a flag indicating
+whether we're in a dclone() or a regular serialization via store() or freeze().
+
+Returned value: A LIST C<($serialized, $ref1, $ref2, ...)> where $serialized
+is the serialized form to be used, and the optional $ref1, $ref2, etc... are
+extra references that you wish to let the Storable engine serialize.
+
+At deserialization time, you will be given back the same LIST, but all the
+extra references will be pointing into the deserialized structure.
+
+The B<first time> the hook is hit in a serialization flow, you may have it
+return an empty list.  That will signal the Storable engine to further
+discard that hook for this class and to therefore revert to the default
+serialization of the underlying Perl data.  The hook will again be normally
+processed in the next serialization.
+
+Unless you know better, serializing hook should always say:
+
+    sub STORABLE_freeze {
+        my ($self, $cloning) = @_;
+        return if $cloning;         # Regular default serialization
+        ....
+    }
+
+in order to keep reasonable dclone() semantics.
+
+=item C<STORABLE_thaw> I<obj>, I<cloning>, I<serialized>, ...
+
+The deserializing hook called on the object during deserialization.
+But wait. If we're deserializing, there's no object yet... right?
+
+Wrong: the Storable engine creates an empty one for you.  If you know Eiffel,
+you can view C<STORABLE_thaw> as an alternate creation routine.
+
+This means the hook can be inherited like any other method, and that
+I<obj> is your blessed reference for this particular instance.
+
+The other arguments should look familiar if you know C<STORABLE_freeze>:
+I<cloning> is true when we're part of a deep clone operation, I<serialized>
+is the serialized string you returned to the engine in C<STORABLE_freeze>,
+and there may be an optional list of references, in the same order you gave
+them at serialization time, pointing to the deserialized objects (which
+have been processed courtesy of the Storable engine).
+
+It is up to you to use these information to populate I<obj> the way you want.
+
+Returned value: none.
+
+=back
+
+=head2 Predicates
+
+Predicates are not exportable.  They must be called by explicitely prefixing
+them with the Storable package name.
+
+=over
+
+=item C<Storable::last_op_in_netorder>
 
 The C<Storable::last_op_in_netorder()> predicate will tell you whether
 network order was used in the last store or retrieve operation.  If you
 don't know how to use this, just forget about it.
+
+=item C<Storable::is_storing>
+
+Returns true if within a store operation (via STORABLE_freeze hook).
+
+=item C<Storable::is_retrieving>
+
+Returns true if within a retrieve operation, (via STORABLE_thaw hook).
+
+=back
+
+=head2 Recursion
+
+With hooks come the ability to recurse back to the Storable engine.  Indeed,
+hooks are regular Perl code, and Storable is convenient when it comes to
+serialize and deserialize things, so why not use it to handle the
+serialization string?
+
+There are a few things you need to know however:
+
+=over
+
+=item *
+
+You can create endless loops if the things you serialize via freeze()
+(for instance) point back to the object we're trying to serialize in the hook.
+
+=item *
+
+Shared references among objects will not stay shared: if we're serializing
+the list of object [A, C] where both object A and C refer to the SAME object
+B, and if there is a serializing hook in A that says freeze(B), then when
+deserializing, we'll get [A', C'] where A' refers to B', but C' refers to D,
+a deep clone of B'.  The topology was not preserved.
+
+=back
+
+That's why C<STORABLE_freeze> lets you provide a list of references
+to serialize.  The engine guarantees that those will be serialized in the
+same context as the other objects, and therefore that shared objects will
+stay shared.
+
+In the above [A, C] example, the C<STORABLE_freeze> hook could return:
+
+	("something", $self->{B})
+
+and the B part would be serialized by the engine.  In C<STORABLE_thaw>, you
+would get back the reference to the B' object, deserialized for you.
+
+Therefore, recursion should normally be avoided, but is nonetheless supported.
 
 =head1 EXAMPLES
 

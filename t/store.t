@@ -1,15 +1,15 @@
 #!./perl
 
-# $Id: store.t,v 0.6 1998/06/04 16:08:35 ram Exp $
+# $Id: store.t,v 0.7 2000/08/03 22:04:45 ram Exp $
 #
-#  Copyright (c) 1995-1998, Raphael Manfredi
+#  Copyright (c) 1995-2000, Raphael Manfredi
 #  
 #  You may redistribute only under the terms of the Artistic License,
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: store.t,v $
-# Revision 0.6  1998/06/04 16:08:35  ram
-# Baseline for first beta release.
+# Revision 0.7  2000/08/03 22:04:45  ram
+# Baseline for second beta release.
 #
 
 require 't/dump.pl';

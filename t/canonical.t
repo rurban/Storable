@@ -1,18 +1,15 @@
 #!./perl
 
-# $Id: canonical.t,v 0.6.1.1 2000/03/02 22:20:53 ram Exp $
+# $Id: canonical.t,v 0.7 2000/08/03 22:04:44 ram Exp $
 #
-#  Copyright (c) 1995-1998, Raphael Manfredi
+#  Copyright (c) 1995-2000, Raphael Manfredi
 #  
 #  You may redistribute only under the terms of the Artistic License,
 #  as specified in the README file that comes with the distribution.
 #  
 # $Log: canonical.t,v $
-# Revision 0.6.1.1  2000/03/02 22:20:53  ram
-# patch9: added test case for "undef" bug in hashes
-#
-# Revision 0.6  1998/06/04  16:08:24  ram
-# Baseline for first beta release.
+# Revision 0.7  2000/08/03 22:04:44  ram
+# Baseline for second beta release.
 #
 
 BEGIN { push @INC, "../blib" }

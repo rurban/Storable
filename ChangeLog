@@ -1,3 +1,26 @@
+Sun Jul 30 12:59:17 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
+
+	First revision of Storable 0.7.
+
+	The serializing format is new, known as version 2.0.  It is fully
+	backward compatible with 0.6.  Earlier formats are deprecated and
+	have not even been tested: next version will drop pre-0.6 format.
+
+	Changes since 0.6@11:
+
+	- Moved interface to the "beta" status.  Some tiny parts are still
+	  subject to change, but nothing important enough to warrant an "alpha"
+	  status any longer.
+
+	- Slightly reduced the size of the Storable image by factorizing
+	  object class names and removing final object storage notification due
+	  to a redesign of the blessed object storing.
+
+	- Classes can now redefine how they wish their instances to be serialized
+	  and/or deep cloned.  Serializing hooks are written in Perl code.
+
+	- The engine is now fully re-entrant.
+
 Sun Apr  2 23:47:50 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
 
 . Description:
