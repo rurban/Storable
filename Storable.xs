@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.6.1.9 2000/03/29 17:53:48 ram Exp $
+ * $Id: Storable.xs,v 0.6.1.10 2000/04/02 21:45:04 ram Exp $
  *
  *  Copyright (c) 1995-1998, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.6.1.10  2000/04/02 21:45:04  ram
+ * patch11: added provision to detect more recent binary formats
+ *
  * Revision 0.6.1.9  2000/03/29 17:53:48  ram
  * patch10: mistakenly included "patchlevel.h" instead of <patchlevel.h>
  *
@@ -2321,6 +2324,20 @@ magic_ok:
 	version = use_network_order >> 1;
 	sv_retrieve_vtbl = version ? sv_retrieve : sv_old_retrieve;
 	TRACEME(("binary image version is %d", version));
+
+	/*
+	 * Inter-operability sanity check: we can't retrieve something stored
+	 * using a format more recent than ours, because we have no way to
+	 * know what has changed, and letting retrieval go would mean a probable
+	 * failure reporting a "corrupted" storable file.
+	 */
+
+	if (version > STORABLE_BINARY) {
+		int minor;
+		GETMARK(minor);					/* Future version will have this */
+		croak("Storable binary image v%d.%d more recent than I am (v%d.0)",
+			version, minor, STORABLE_BINARY);
+	}
 
 	if (netorder = (use_network_order & 0x1))
 		return &PL_sv_undef;			/* No byte ordering info */

@@ -1,3 +1,16 @@
+Sun Apr  2 23:47:50 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
+
+. Description:
+
+	Added provision to detect more recent binary formats, since
+	the new upcoming Storable-0.7 will use a different format.
+	In order to prevent attempting the de-serialization of newer
+	formats by older versions, I'm adding this now to the 0.6 series.
+
+	I'm expecting this revision to be the last of the 0.6 series.
+	Unless it does not work with perl 5.6, which I don't use yet,
+	and therefore against which I cannot test.
+
 Wed Mar 29 19:55:21 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
 
 . Description:
