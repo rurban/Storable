@@ -1,3 +1,13 @@
+Tue May 12 09:15:15 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Version number now got from Storable.pm directly.
+
+	Fixed overzealous sv_type() optimization, which would make
+	Storable fail when faced with an "upgraded" SV to the PVIV
+	or PVNV kind containing a reference.
+
 Thu Apr 30 15:11:30 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

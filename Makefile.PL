@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 0.5.1.8 1998/04/30 13:04:57 ram Exp $
+# $Id: Makefile.PL,v 0.5.1.9 1998/05/12 07:12:52 ram Exp $
 #
 #  Copyright (c) 1995-1997, Raphael Manfredi
 #  
@@ -6,6 +6,9 @@
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: Makefile.PL,v $
+# Revision 0.5.1.9  1998/05/12  07:12:52  ram
+# patch9: version number now got from Storable.pm directly
+#
 # Revision 0.5.1.8  1998/04/30  13:04:57  ram
 # patch8: increased revision number
 #
@@ -37,13 +40,11 @@
 use ExtUtils::MakeMaker;
 use Config;
 
-$Version = '0.508';
-
 WriteMakefile(
-    'NAME'     => 'Storable',
-    'DISTNAME' => "Storable",
-    'VERSION'  => $Version,
-    'dist'      => { SUFFIX => 'gz', COMPRESS => 'gzip -f' },
-    'clean' 	=> {'FILES' => '*%'},
+    'NAME'			=> 'Storable',
+    'DISTNAME'		=> "Storable",
+    'VERSION_FROM'	=> 'Storable.pm',
+    'dist'			=> { SUFFIX => 'gz', COMPRESS => 'gzip -f' },
+    'clean'			=> {'FILES' => '*%'},
 );
 

@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.5.1.6 1998/04/30 13:07:28 ram Exp $
+ * $Id: Storable.xs,v 0.5.1.7 1998/05/12 07:14:03 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.5.1.7  1998/05/12  07:14:03  ram
+ * patch9: fixed overzealous sv_type() optimization
+ *
  * Revision 0.5.1.6  1998/04/30  13:07:28  ram
  * patch8: optimized sv_type() to avoid flags checking when not needed
  * patch8: stubs for XS now use OutputStream and InputStream file types
@@ -852,11 +855,24 @@ SV *sv;
 	case SVt_NULL:
 	case SVt_IV:
 	case SVt_NV:
+		/*
+		 * No need to check for ROK, that can't be set here since there
+		 * is no field capable of hodling the xrv_rv reference.
+		 */
+		return svis_SCALAR;
 	case SVt_PV:
+	case SVt_RV:
 	case SVt_PVIV:
 	case SVt_PVNV:
-		return svis_SCALAR;
-	case SVt_RV:
+		/*
+		 * Starting from SVt_PV, it is possible to have the ROK flag
+		 * set, the pointer to the other SV being either stored in
+		 * the xrv_rv (in the case of a pure SVt_RV), or as the
+		 * xpv_pv field of an SVt_PV and its heirs.
+		 *
+		 * However, those SV cannot be magical or they would be an
+		 * SVt_PVMG at least.
+		 */
 		return SvROK(sv) ? svis_REF : svis_SCALAR;
 	case SVt_PVMG:
 	case SVt_PVBM:
