@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.5.1.1 1997/11/05 09:51:35 ram Exp $
+ * $Id: Storable.xs,v 0.5.1.2 1998/03/25 13:50:50 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.5.1.2  1998/03/25  13:50:50  ram
+ * patch4: cannot use SV addresses as tag when using nstore() on LP64
+ *
  * Revision 0.5.1.1  1997/11/05  09:51:35  ram
  * patch1: fix memory leaks on seen hash table and returned SV refs
  * patch1: did not work properly when tainting enabled
@@ -123,7 +126,7 @@ struct extendable {
  * At store time:
  * This hash table records the objects which have already been stored.
  * Those are referred to as SX_OBJECT in the file, and their "tag" (i.e.
- * their memory address) is used to identify them.
+ * an arbitrary sequence number) is used to identify them.
  *
  * At retrieve time:
  * This hash table records the objects which have already been retrieved,
@@ -133,9 +136,16 @@ struct extendable {
  */
 
 /*
+ * The tag is a 32-bit integer, for portability, otherwise it is an address.
+ * It is assumed a long is large enough to hold a pointer.
+ */
+typedef unsigned long stag_t;
+
+/*
  * XXX multi-threading needs context for the following variables...
  */
 static HV *seen;			/* which objects have been seen */
+static I32 tagnum;			/* incremented at store time for each seen object */
 static int netorder = 0;	/* true if network order used */
 static int forgive_me = -1;	/* whether to be forgiving... */
 struct extendable keybuf;	/* for hash key retrieval */
@@ -390,14 +400,20 @@ static char *magicstr = "perl-store";	/* Used as a magic number */
 	}										\
 } while (0)
 
+/*
+ * This macro is used at retrieve time, to remember where object 'y', bearing a
+ * given tag 'z', has been retrieve. Next time we see an SX_OBJECT marker,
+ * we'll therefore know where it has been retrieved and will be able to
+ * share the same reference, as in the original stored memory image.
+ */
 #define SEEN(z,y) do {						\
 	if (!y)									\
 		return (SV *) 0;					\
 	ASSERT(!hv_fetch(seen, (char *) &z, sizeof(z), FALSE),	\
-		("*** ALREADY SEEN 0x%lx ***", (unsigned long) z));	\
+		("*** ALREADY SEEN object #%d ***", z));	\
 	if (hv_store(seen, (char *) &z, sizeof(z), SvREFCNT_inc(y), 0) == 0) \
 		return (SV *) 0;					\
-	TRACEME(("seen(0x%lx) = 0x%lx (refcnt=%d)", (unsigned long) z, \
+	TRACEME(("seen(#%d) = 0x%lx (refcnt=%d)", z, \
 		(unsigned long) y, SvREFCNT(y)-1)); \
 	} while (0)
 
@@ -800,29 +816,50 @@ SV *sv;
 	int ret;
 	int type;
 	SV *rv;
+	SV *tag;
 
 	TRACEME(("store (0x%lx)", (unsigned long) sv));
 
 	/*
 	 * If object has already been stored, do not duplicate data.
-	 * Simply emit the SX_OBJECT marker followed by its address data.
+	 * Simply emit the SX_OBJECT marker followed by its tag data.
+	 *
+	 * When using network order, the tag is an I32 value, otherwise it
+	 * is simply the address of the SV, for speed.
 	 */
 
 	svh = hv_fetch(seen, (char *) &sv, sizeof(sv), FALSE);
 	if (svh) {
-		TRACEME(("object 0x%lx seen", (unsigned long) sv));
-		WRITE(&sv, sizeof(SV *));
+		if (netorder) {
+			I32 tagval = SvIV(*svh);
+			TRACEME(("object 0x%lx seen as #%d.", (unsigned long) sv, tagval));
+			WRITE(&tagval, sizeof(stag_t));
+		} else {
+			WRITE(&sv, sizeof(SV *));
+			TRACEME(("object 0x%lx seen.", (unsigned long) sv));
+		}
 		PUTMARK(SX_OBJECT);
 		return 0;
 	}
 
 	/*
-	 * Record the address as being stored, before recursing...
+	 * Allocate a new tag and associate it with the address of the sv being
+	 * stored, before recursing... The allocated tag SV will have a refcount
+	 * of 1 and will be reclaimed when the %seen table is disposed of.
+	 *
+	 * When not saving using network order, it is not necessary to map an
+	 * address to a tag: we can use the address itself. Of course, when
+	 * saving on an LP64 system, that will give us 64-bit tags, but that
+	 * avoids the creation of all those IV, which saves us around 5-10% of
+	 * store time -- it doesn't make any difference at retrieve time.
 	 */
 
-	if (!hv_store(seen, (char *) &sv, sizeof(sv), SvREFCNT_inc(&sv_undef), 0))
+	tagnum++;
+	tag = netorder ? newSViv(tagnum) : SvREFCNT_inc(&sv_undef);
+
+	if (!hv_store(seen, (char *) &sv, sizeof(sv), tag, 0))
 		return -1;
-	TRACEME(("recorded 0x%lx...", (unsigned long) sv));
+	TRACEME(("recorded 0x%lx as object #%d", (unsigned long) sv, tagnum));
 
 	/*
 	 * Call the proper routine to store this SV.
@@ -830,8 +867,11 @@ SV *sv;
 	 */
 
 	type = sv_type(sv);
-	TRACEME(("storing 0x%x type = %d...", (unsigned long) sv, type));
-	WRITE(&sv, sizeof(sv));
+	TRACEME(("storing 0x%lx #%d type=%d...", (unsigned long) sv, tagnum, type));
+	if (netorder)
+		WRITE(&tagnum, sizeof(tagnum));
+	else
+		WRITE(&sv, sizeof(sv));
 
 	if (ret = SV_STORE(type)(f, sv))
 		return ret;
@@ -931,6 +971,7 @@ int use_network_order;
 
 	netorder = use_network_order;	/* Global, not suited for multi-thread */
 	forgive_me = -1;				/* Unknown fetched from perl if needed */
+	tagnum = 0;						/* Reset tag numbers */
 
 	if (-1 == magic_write(f, netorder))	/* Emit magic number and system info */
 		return 0;						/* Error */
@@ -1040,14 +1081,14 @@ SV *sv;
  * Retrieve reference to some other scalar.
  * Layout is SX_REF <object>, with SX_REF already read.
  */
-static SV *retrieve_ref(f, addr)
+static SV *retrieve_ref(f, tag)
 PerlIO *f;
-char *addr;
+stag_t tag;
 {
 	SV *rv;
 	SV *sv;
 
-	TRACEME(("retrieve_ref (0x%lx)", (unsigned long) addr));
+	TRACEME(("retrieve_ref (#%d)", tag));
 
 	/*
 	 * We need to create the SV that holds the reference to the yet-to-retrieve
@@ -1059,7 +1100,7 @@ char *addr;
 	 */
 
 	rv = NEWSV(10002, 0);
-	SEEN(addr, rv);			/* Will return if rv is null */
+	SEEN(tag, rv);			/* Will return if rv is null */
 	sv = retrieve(f);		/* Retrieve <object> */
 	if (!sv)
 		return (SV *) 0;	/* Failed */
@@ -1099,23 +1140,22 @@ char *addr;
  * The scalar is "long" in that <length> is larger than LG_SCALAR so it
  * was not stored on a single byte.
  */
-static SV *retrieve_lscalar(f, addr)
+static SV *retrieve_lscalar(f, tag)
 PerlIO *f;
-char *addr;
+stag_t tag;
 {
 	STRLEN len;
 	SV *sv;
 
 	RLEN(len);
-	TRACEME(("retrieve_lscalar (0x%lx), len = %d",
-		(unsigned long) addr, len));
+	TRACEME(("retrieve_lscalar (#%d), len = %d", tag, len));
 
 	/*
 	 * Allocate an empty scalar of the suitable length.
 	 */
 
 	sv = NEWSV(10002, len);
-	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
+	SEEN(tag, sv);			/* Associate this new scalar with tag "tag" */
 
 	/*
 	 * WARNING: duplicates parts of sv_setpv and breaks SV data encapsulation.
@@ -1147,23 +1187,22 @@ char *addr;
  * The scalar is "short" so <length> is single byte. If it is 0, there
  * is no <data> section.
  */
-static SV *retrieve_scalar(f, addr)
+static SV *retrieve_scalar(f, tag)
 PerlIO *f;
-char *addr;
+stag_t tag;
 {
 	int len;
 	SV *sv;
 
 	GETMARK(len);
-	TRACEME(("retrieve_scalar (0x%lx), len = %d",
-		(unsigned long) addr, len));
+	TRACEME(("retrieve_scalar (#%d), len = %d", tag, len));
 
 	/*
 	 * Allocate an empty scalar of the suitable length.
 	 */
 
 	sv = NEWSV(10002, len);
-	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
+	SEEN(tag, sv);			/* Associate this new scalar with tag "tag" */
 
 	/*
 	 * WARNING: duplicates parts of sv_setpv and breaks SV data encapsulation.
@@ -1204,18 +1243,18 @@ char *addr;
  * Retrieve defined integer.
  * Layout is SX_INTEGER <data>, whith SX_INTEGER already read.
  */
-static SV *retrieve_integer(f, addr)
+static SV *retrieve_integer(f, tag)
 PerlIO *f;
-char *addr;
+stag_t tag;
 {
 	SV *sv;
 	IV iv;
 
-	TRACEME(("retrieve_integer (0x%lx)", (unsigned long) addr));
+	TRACEME(("retrieve_integer (#%d)", tag));
 
 	READ(&iv, sizeof(iv));
 	sv = newSViv(iv);
-	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
+	SEEN(tag, sv);			/* Associate this new scalar with tag "tag" */
 
 	TRACEME(("integer %d", iv));
 	TRACEME(("ok (retrieve_integer at 0x%lx)", (unsigned long) sv));
@@ -1229,14 +1268,14 @@ char *addr;
  * Retrieve defined integer in network order.
  * Layout is SX_NETINT <data>, whith SX_NETINT already read.
  */
-static SV *retrieve_netint(f, addr)
+static SV *retrieve_netint(f, tag)
 PerlIO *f;
-char *addr;
+stag_t tag;
 {
 	SV *sv;
 	int iv;
 
-	TRACEME(("retrieve_netint (0x%lx)", (unsigned long) addr));
+	TRACEME(("retrieve_netint (#%d)", tag));
 
 	READ(&iv, sizeof(iv));
 #ifdef HAS_NTOHL
@@ -1246,7 +1285,7 @@ char *addr;
 	sv = newSViv(iv);
 	TRACEME(("network integer (as-is) %d", iv));
 #endif
-	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
+	SEEN(tag, sv);			/* Associate this new scalar with tag "tag" */
 
 	TRACEME(("ok (retrieve_netint at 0x%lx)", (unsigned long) sv));
 
@@ -1259,18 +1298,18 @@ char *addr;
  * Retrieve defined double.
  * Layout is SX_DOUBLE <data>, whith SX_DOUBLE already read.
  */
-static SV *retrieve_double(f, addr)
+static SV *retrieve_double(f, tag)
 PerlIO *f;
-char *addr;
+stag_t tag;
 {
 	SV *sv;
 	double nv;
 
-	TRACEME(("retrieve_double (0x%lx)", (unsigned long) addr));
+	TRACEME(("retrieve_double (#%d)", tag));
 
 	READ(&nv, sizeof(nv));
 	sv = newSVnv(nv);
-	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
+	SEEN(tag, sv);			/* Associate this new scalar with tag "tag" */
 
 	TRACEME(("double %lf", nv));
 	TRACEME(("ok (retrieve_double at 0x%lx)", (unsigned long) sv));
@@ -1284,19 +1323,19 @@ char *addr;
  * Retrieve defined byte (small integer within the [-128, +127] range).
  * Layout is SX_DOUBLE <data>, whith SX_DOUBLE already read.
  */
-static SV *retrieve_byte(f, addr)
+static SV *retrieve_byte(f, tag)
 PerlIO *f;
-char *addr;
+stag_t tag;
 {
 	SV *sv;
 	int siv;
 
-	TRACEME(("retrieve_byte (0x%lx)", (unsigned long) addr));
+	TRACEME(("retrieve_byte (#%d)", tag));
 
 	GETMARK(siv);
 	TRACEME(("small integer read as %d", (unsigned char) siv));
 	sv = newSViv((unsigned char) siv - 128);
-	SEEN(addr, sv);			/* Associate this new scalar with tag "addr" */
+	SEEN(tag, sv);			/* Associate this new scalar with tag "tag" */
 
 	TRACEME(("byte %d", (unsigned char) siv - 128));
 	TRACEME(("ok (retrieve_byte at 0x%lx)", (unsigned long) sv));
@@ -1336,9 +1375,9 @@ static SV *retrieve_other()
  *
  * When we come here, SX_ARRAY has been read already.
  */
-static SV *retrieve_array(f, addr)
+static SV *retrieve_array(f, tag)
 PerlIO *f;
-char *addr;
+stag_t tag;
 {
 	I32 len;
 	I32 i;
@@ -1346,7 +1385,7 @@ char *addr;
 	SV *sv;
 	int c;
 
-	TRACEME(("retrieve_array (0x%lx)", (unsigned long) addr));
+	TRACEME(("retrieve_array (#%d)", tag));
 
 	/*
 	 * Read length, and allocate array, then pre-extend it.
@@ -1355,7 +1394,7 @@ char *addr;
 	RLEN(len);
 	TRACEME(("size = %d", len));
 	av = newAV();
-	SEEN(addr, av);				/* Will return if array not allocated nicely */
+	SEEN(tag, av);				/* Will return if array not allocated nicely */
 	if (len)
 		av_extend(av, len);
 	if (len == 0)
@@ -1397,9 +1436,9 @@ char *addr;
  *
  * When we come here, SX_HASH has been read already.
  */
-static SV *retrieve_hash(f, addr)
+static SV *retrieve_hash(f, tag)
 PerlIO *f;
-char *addr;
+stag_t tag;
 {
 	I32 len;
 	I32 size;
@@ -1409,7 +1448,7 @@ char *addr;
 	int c;
 	static SV *sv_h_undef = (SV *) 0;		/* hv_store() bug */
 
-	TRACEME(("retrieve_hash (0x%lx)", (unsigned long) addr));
+	TRACEME(("retrieve_hash (#%d)", tag));
 
 	/*
 	 * Read length, allocate table.
@@ -1418,7 +1457,7 @@ char *addr;
 	RLEN(len);
 	TRACEME(("size = %d", len));
 	hv = newHV();
-	SEEN(addr, hv);			/* Will return if table not allocated properly */
+	SEEN(tag, hv);			/* Will return if table not allocated properly */
 	if (len == 0)
 		return (SV *) hv;	/* No data follow if table empty */
 
@@ -1566,7 +1605,7 @@ PerlIO *f;
 static SV *retrieve(f)
 PerlIO *f;
 {
-	char *addr;
+	stag_t tag;
 	int type;
 	SV **svh;
 	SV *sv;
@@ -1579,16 +1618,20 @@ PerlIO *f;
 	 * should have already retrieved. Otherwise, we've got a new one....
 	 */
 
-	READ(&addr, sizeof(char *));
+	if (netorder) {
+		I32 nettag;
+		READ(&nettag, sizeof(I32));		/* Ordereded sequence of I32 */
+		tag = (stag_t) nettag;
+	} else
+		READ(&tag, sizeof(stag_t));		/* Address of the SV at store time */
 	GETMARK(type);
 
-	TRACEME(("retrieve addr = 0x%lx, type = %d", (unsigned long) addr, type));
+	TRACEME(("retrieve tag #%d, type = %d", tag, type));
 
 	if (type == SX_OBJECT) {
-		svh = hv_fetch(seen, (char *) &addr, sizeof(addr), FALSE);
+		svh = hv_fetch(seen, (char *) &tag, sizeof(tag), FALSE);
 		if (!svh)
-			croak("Object 0x%lx should have been retrieved already",
-				(unsigned long) addr);
+			croak("Object #%d should have been retrieved already", tag);
 		sv = *svh;
 		TRACEME(("already retrieved at 0x%lx", (unsigned long) sv));
 		SvREFCNT_inc(sv);	/* One more reference to this same sv */
@@ -1599,7 +1642,7 @@ PerlIO *f;
 	 * Okay, first time through for this one.
 	 */
 
-	sv = RETRIEVE(type)(f, addr);
+	sv = RETRIEVE(type)(f, tag);
 	if (!sv)
 		return (SV *) 0;			/* Failed */
 

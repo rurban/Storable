@@ -1,3 +1,27 @@
+Wed Mar 25 14:57:02 MET 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Added code example for store_fd() and retrieve_fd() in the
+	man page, to emphasize that file descriptors must be passed as
+	globs, not as plain strings.
+
+	Cannot use SV addresses as tag when using nstore() on LP64. This
+	was the cause of problems when creating a storable image on an
+	LP64 machine and retrieving it on an ILP32 system, which is
+	exactly what nstore() is meant for...
+
+	However, we continue to use SV addresses as tags for plain store(),
+	because benchamarking shows that it saves up to 8% of the store
+	time, and store() is meant to be fast at the expense of lack
+	of portability.
+
+	This means there will be approximately an 8% degradation of
+	performance for nstore(), but it's now working as expected.
+	That cost may vary on your machine of course, since it is
+	solely caused by the memory allocation overhead used to create
+	unique SV tags for each distinct stored SV.
+
 Tue Jan 20 09:21:53 MET 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

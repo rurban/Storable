@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.5.1.3 1998/01/20 08:21:44 ram Exp $
+;# $Id: Storable.pm,v 0.5.1.4 1998/03/25 13:49:55 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,6 +6,10 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.5.1.4  1998/03/25  13:49:55  ram
+;# patch4: added code example for store_fd() and retrieve_fd()
+;# patch4: increased revision minor
+;#
 ;# Revision 0.5.1.3  1998/01/20  08:21:44  ram
 ;# patch3: don't use any '_' in version number
 ;#
@@ -35,7 +39,7 @@ use AutoLoader;
 use Carp;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.503';
+$VERSION = '0.504';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 bootstrap Storable;
@@ -232,7 +236,11 @@ At the cost of a slight header overhead, you may store to an already
 opened file descriptor using the C<store_fd> routine, and retrieve
 from a file via C<retrieve_fd>. Those names aren't imported by default,
 so you will have to do that explicitely if you need those routines.
-The file descriptor name you supply must be fully qualified.
+The file descriptor you supply must be already opened, for read
+if you're going to retrieve and for write if you wish to store.
+
+	store_fd(\%table, *STDOUT) || die "can't store to stdout\n";
+	$hashref = retrieve_fd(*STDIN);
 
 You can also store data in network order to allow easy sharing across
 multiple platforms, or when storing on a socket known to be remotely
