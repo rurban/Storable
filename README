@@ -107,3 +107,10 @@ To compile this extension, run:
 There is an embeded POD manual page in Storable.pm.
 
 Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+Thanks to:
+
+	Jarkko Hietaniemi <jhi@iki.fi>
+	Ulrich Pfeifer <pfeifer@charly.informatik.uni-dortmund.de>
+
+for their contributions.

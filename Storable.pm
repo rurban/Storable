@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.4 1997/01/15 18:20:09 ram Exp $
+;# $Id: Storable.pm,v 0.4.1.1 1997/01/22 14:17:19 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,6 +6,9 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.4.1.1  1997/01/22  14:17:19  ram
+;# patch1: documented new forgive_me variable
+;#
 ;# Revision 0.4  1997/01/15  18:20:09  ram
 ;# Baseline for fourth netwide alpha release.
 ;#
@@ -19,6 +22,7 @@ package Storable; @ISA = qw(Exporter DynaLoader);
 
 use AutoLoader;
 use Carp;
+use vars qw($forgive_me);
 
 bootstrap Storable;
 1;
@@ -224,6 +228,11 @@ like those.
 You can't store GLOB, CODE, FORMLINE, etc... If you can define
 semantics for those operations, feel free to enhance Storable so that
 it can deal with those.
+
+The store functions will C<croak> if they run into such references
+unless you set C<$Storable::forgive_me> to some C<TRUE> value. In this
+case, the fatal message is turned in a warning and some
+meaningless string is stored instead.
 
 Due to the aforementionned optimizations, Storable is at the mercy
 of perl's internal redesign or structure changes. If that bothers

@@ -1,0 +1,21 @@
+Mon Jan 13 17:53:18 MET 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Random code fixes.
+
+Wed Jan 22 15:19:56 MET 1997   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Updated version number in Makefile.PL.
+
+	Added "thanks to" section to README.
+
+	Documented new forgive_me variable.
+
+	Made 64-bit clean.
+
+	Added forgive_me support to allow store() of data structures
+	containing non-storable items like CODE refs.
+

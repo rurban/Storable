@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.4 1997/01/15 18:20:10 ram Exp $
+ * $Id: Storable.xs,v 0.4.1.2 1997/01/22 14:33:57 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,14 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.4.1.2  1997/01/22  14:33:57  ram
+ * patch2: random code fix to avoid compiler warnings
+ *
+ * Revision 0.4.1.1  1997/01/22  14:18:17  ram
+ * patch1: made 64-bit clean
+ * patch1: forgot to update debugging printf to perlio
+ * patch1: added forgive_me support
+ *
  * Revision 0.4  1997/01/15  18:20:10  ram
  * Baseline for fourth netwide alpha release.
  *
@@ -27,13 +35,14 @@
 #ifndef DASSERT
 #define DASSERT
 #endif
-#define TRACEME(x)	do { printf x; printf("\n"); } while (0)
+#define TRACEME(x)	do { PerlIO_stdoutf x; PerlIO_stdoutf("\n"); } while (0)
 #else
 #define TRACEME(x)
 #endif
 
 #ifdef DASSERT
-#define ASSERT(x,y)	do { if (!x) { printf y; printf("\n"); }} while (0)
+#define ASSERT(x,y)	do { \
+	if (!x) { PerlIO_stdoutf y; PerlIO_stdoutf("\n"); }} while (0)
 #else
 #define ASSERT(x,y)
 #endif
@@ -85,8 +94,11 @@
  * to that retrieved object is kept in the table, and is returned when an
  * SX_OBJECT is found bearing that same tag.
  */
-static HV *seen;			/* XXX multi-threading needs context */
-static int netorder = 0;	/* XXX idem -- true if network order used */
+
+/* XXX multi-threading needs context for the following variables */
+static HV *seen;			/* which objects have been seen */
+static int netorder = 0;	/* true if network order used */
+static int forgive_me = -1;	/* whether to be forgiving... */
 
 /*
  * The following structure is used for hash table key retrieval. Since, when
@@ -137,7 +149,7 @@ static char *magicstr = "perl-store";	/* Used as a magic number */
 		int y = (int) htonl(x);		\
 		if (PerlIO_write(f, &y, sizeof(y)) != sizeof(y))	\
 			return -1;				\
-	} else if (PerlIO_write(f, &x, sizeof(x)) != sizeof(y))	\
+	} else if (PerlIO_write(f, &x, sizeof(x)) != sizeof(x))	\
 		return -1;					\
 	} while (0)
 #else
@@ -151,6 +163,20 @@ static char *magicstr = "perl-store";	/* Used as a magic number */
 	if (PerlIO_write(f, x, y) != y)		\
 		return -1;						\
 	} while (0)
+
+#define STORE_SCALAR(pv, len) do {		\
+	if (len < LG_SCALAR) {				\
+		unsigned char clen = (unsigned char) len;	\
+		PUTMARK(SX_SCALAR);				\
+		PUTMARK(clen);					\
+		if (len)						\
+			WRITE(pv, len);				\
+	} else {							\
+		PUTMARK(SX_LSCALAR);			\
+		WLEN(len);						\
+		WRITE(pv, len);					\
+	}									\
+} while (0)
 
 /*
  * Useful retrieve shortcuts...
@@ -185,14 +211,14 @@ static char *magicstr = "perl-store";	/* Used as a magic number */
 		return (SV *) 0;					\
 	}} while (0)
 
-#define SEEN(x,y) do {						\
+#define SEEN(z,y) do {						\
 	if (!y)									\
 		return (SV *) 0;					\
-	ASSERT(!hv_fetch(seen, (char *) &x, sizeof(x), FALSE),	\
-		("*** ALREADY SEEN 0x%lx ***", (unsigned long) x));	\
-	if (hv_store(seen, (char *) &x, sizeof(x), SvREFCNT_inc(y), 0) == 0) \
+	ASSERT(!hv_fetch(seen, (char *) &z, sizeof(z), FALSE),	\
+		("*** ALREADY SEEN 0x%lx ***", (unsigned long) z));	\
+	if (hv_store(seen, (char *) &z, sizeof(z), SvREFCNT_inc(y), 0) == 0) \
 		return (SV *) 0;					\
-	TRACEME(("seen(0x%lx) = 0x%lx (refcnt=%d)", (unsigned long) x, \
+	TRACEME(("seen(0x%lx) = 0x%lx (refcnt=%d)", (unsigned long) z, \
 		(unsigned long) y, SvREFCNT(y)-1)); \
 	} while (0)
 
@@ -297,7 +323,7 @@ SV *sv;
 			niv = (int) htonl(iv);
 			TRACEME(("using network order"));
 #else
-			niv = iv;
+			niv = (int) iv;
 			TRACEME(("as-is for network order"));
 #endif
 			PUTMARK(SX_NETINT);
@@ -317,18 +343,7 @@ SV *sv;
 		 */
 	string:
 
-		if (len < LG_SCALAR) {
-			unsigned char clen = (unsigned char) len;
-			PUTMARK(SX_SCALAR);		/* short scalar */
-			PUTMARK(clen);
-			if (len)
-				WRITE(pv, len);
-		} else {
-			PUTMARK(SX_LSCALAR);	/* long scalar */
-			WLEN(len);
-			WRITE(pv, len);
-		}
-
+		STORE_SCALAR(pv, len);
 		TRACEME(("ok (scalar 0x%lx, length = %d)", (unsigned long) sv, len));
 
 	} else
@@ -479,13 +494,45 @@ out:
  *
  * We don't know how to store the item we reached, so return an error condition.
  * (it's probably a GLOB, some CODE reference, etc...)
+ *
+ * If they defined the `forgive_me' variable at the Perl level to some
+ * true value, then don't croak, just warn, and store a placeholder string
+ * instead.
  */
 static int store_other(f, sv)
 PerlIO *f;
 SV *sv;
 {
+	STRLEN len;
+	static char buf[80];
+
 	TRACEME(("store_other"));
-	croak("Can't store %s items", sv_reftype(sv, FALSE));
+
+	/*
+	 * Fetch the value from perl only once per store() operation.
+	 */
+
+	if (
+		forgive_me == 0 ||
+		(forgive_me < 0 && !(forgive_me =
+			SvTRUE(perl_get_sv("Storable::forgive_me", TRUE)) ? 1 : 0))
+	)
+		croak("Can't store %s items", sv_reftype(sv, FALSE));
+
+	warn("Can't store %s items", sv_reftype(sv, FALSE));
+
+	/*
+	 * Store placeholder string as a scalar instead...
+	 */
+
+	(void) sprintf(buf, "You lost %s(0x%lx)\0", sv_reftype(sv, FALSE),
+		(unsigned long) sv);
+
+	len = strlen(buf);
+	STORE_SCALAR(buf, len);
+	TRACEME(("ok (dummy \"%s\", length = %d)", buf, len));
+
+	return 0;
 }
 
 /*
@@ -531,8 +578,10 @@ SV *sv;
 	case SVt_PVHV:
 		return svis_HASH;
 	default:
-		return svis_OTHER;
+		break;
 	}
+
+	return svis_OTHER;
 }
 
 /*
@@ -577,7 +626,7 @@ SV *sv;
 	svh = hv_fetch(seen, (char *) &sv, sizeof(sv), FALSE);
 	if (svh) {
 		TRACEME(("object 0x%lx seen", (unsigned long) sv));
-		WRITE(&sv, sizeof(sv));
+		WRITE(&sv, sizeof(SV *));
 		PUTMARK(SX_OBJECT);
 		return 0;
 	}
@@ -652,6 +701,7 @@ SV *sv;
  */
 static int magic_write(f, use_network_order)
 PerlIO *f;
+int use_network_order;
 {
 	char buf[256];	/* Enough room for 256 hexa digits */
 	unsigned char c;
@@ -689,10 +739,12 @@ PerlIO *f;
 static int do_store(f, sv, use_network_order)
 PerlIO *f;
 SV *sv;
+int use_network_order;
 {
 	int status;
 
 	netorder = use_network_order;	/* Global, not suited for multi-thread */
+	forgive_me = -1;				/* Unknown fetched from perl if needed */
 
 	if (-1 == magic_write(f, netorder))	/* Emit magic number and system info */
 		return 0;						/* Error */
@@ -822,7 +874,6 @@ char *addr;
 {
 	STRLEN len;
 	SV *sv;
-	char *buf;
 
 	TRACEME(("retrieve_lscalar (0x%lx)", (unsigned long) addr));
 
@@ -870,7 +921,6 @@ char *addr;
 {
 	int len;
 	SV *sv;
-	char *buf;
 
 	TRACEME(("retrieve_scalar (0x%lx)", (unsigned long) addr));
 
@@ -918,7 +968,7 @@ PerlIO *f;
 char *addr;
 {
 	SV *sv;
-	int iv;
+	IV iv;
 
 	TRACEME(("retrieve_integer (0x%lx)", (unsigned long) addr));
 
@@ -1032,6 +1082,7 @@ static SV *retrieve_undef()
 static SV *retrieve_other()
 {
 	croak("Corrupted perl storable file");
+	return (SV *) 0;
 }
 
 /*
@@ -1371,11 +1422,13 @@ PerlIO *f;
 	sv = retrieve(f);		/* Recursively retrieve object, get root SV  */
 	hv_undef(seen);			/* Free retrieved object table */
 
+	if (!sv) {
+		TRACEME(("retrieve ERROR"));
+		return &sv_undef;	/* Something went wrong, return undef */
+	}
+
 	TRACEME(("retrieve got %s(0x%lx)",
 		sv_reftype(sv, FALSE), (unsigned long) sv));
-
-	if (!sv)
-		return &sv_undef;	/* Something went wrong, return undef */
 
 	/*
 	 * Build a reference to the SV returned by pretrieve even if it is
