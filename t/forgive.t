@@ -1,8 +1,8 @@
 #!./perl
 
-# $Id: forgive.t,v 0.5 1997/06/10 16:38:43 ram Exp $
+# $Id: forgive.t,v 0.6 1998/06/04 16:08:38 ram Exp $
 #
-#  Copyright (c) 1995-1997, Raphael Manfredi
+#  Copyright (c) 1995-1998, Raphael Manfredi
 #  
 #  You may redistribute only under the terms of the Artistic License,
 #  as specified in the README file that comes with the distribution.
@@ -11,8 +11,8 @@
 # (C) Copyright 1997, Universitat Dortmund, all rights reserved.
 #
 # $Log: forgive.t,v $
-# Revision 0.5  1997/06/10  16:38:43  ram
-# Baseline for fifth alpha release.
+# Revision 0.6  1998/06/04  16:08:38  ram
+# Baseline for first beta release.
 #
 
 use Storable qw(store retrieve);

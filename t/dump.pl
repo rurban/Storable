@@ -1,16 +1,13 @@
-;# $Id: dump.pl,v 0.5.1.1 1998/04/24 15:03:51 ram Exp $
+;# $Id: dump.pl,v 0.6 1998/06/04 16:08:27 ram Exp $
 ;#
-;#  Copyright (c) 1995-1997, Raphael Manfredi
+;#  Copyright (c) 1995-1998, Raphael Manfredi
 ;#  
 ;#  You may redistribute only under the terms of the Artistic License,
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: dump.pl,v $
-;# Revision 0.5.1.1  1998/04/24  15:03:51  ram
-;# patch7: must allocate object count before recursing
-;#
-;# Revision 0.5  1997/06/10  16:38:40  ram
-;# Baseline for fifth alpha release.
+;# Revision 0.6  1998/06/04  16:08:27  ram
+;# Baseline for first beta release.
 ;#
 
 package dump;

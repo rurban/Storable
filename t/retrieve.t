@@ -1,15 +1,15 @@
 #!./perl
 
-# $Id: retrieve.t,v 0.5 1997/06/10 16:38:41 ram Exp $
+# $Id: retrieve.t,v 0.6 1998/06/04 16:08:33 ram Exp $
 #
-#  Copyright (c) 1995-1997, Raphael Manfredi
+#  Copyright (c) 1995-1998, Raphael Manfredi
 #  
 #  You may redistribute only under the terms of the Artistic License,
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: retrieve.t,v $
-# Revision 0.5  1997/06/10  16:38:41  ram
-# Baseline for fifth alpha release.
+# Revision 0.6  1998/06/04  16:08:33  ram
+# Baseline for first beta release.
 #
 
 require 't/dump.pl';

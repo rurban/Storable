@@ -1,15 +1,15 @@
 #!./perl
 
-# $Id: dclone.t,v 0.5 1997/06/10 16:38:39 ram Exp $
+# $Id: dclone.t,v 0.6 1998/06/04 16:08:25 ram Exp $
 #
-#  Copyright (c) 1995-1997, Raphael Manfredi
+#  Copyright (c) 1995-1998, Raphael Manfredi
 #  
 #  You may redistribute only under the terms of the Artistic License,
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: dclone.t,v $
-# Revision 0.5  1997/06/10  16:38:39  ram
-# Baseline for fifth alpha release.
+# Revision 0.6  1998/06/04  16:08:25  ram
+# Baseline for first beta release.
 #
 
 require 't/dump.pl';

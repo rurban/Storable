@@ -1,15 +1,15 @@
 #!./perl
 
-# $Id: tied.t,v 0.5.1.1 1998/04/24 15:04:12 ram Exp $
+# $Id: tied.t,v 0.6 1998/06/04 16:08:40 ram Exp $
 #
-#  Copyright (c) 1995-1997, Raphael Manfredi
+#  Copyright (c) 1995-1998, Raphael Manfredi
 #  
 #  You may redistribute only under the terms of the Artistic License,
 #  as specified in the README file that comes with the distribution.
 #
 # $Log: tied.t,v $
-# Revision 0.5.1.1  1998/04/24  15:04:12  ram
-# patch7: created
+# Revision 0.6  1998/06/04  16:08:40  ram
+# Baseline for first beta release.
 #
 
 require 't/dump.pl';

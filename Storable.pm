@@ -1,43 +1,13 @@
-;# $Id: Storable.pm,v 0.5.1.9 1998/05/12 07:13:10 ram Exp $
+;# $Id: Storable.pm,v 0.6 1998/06/04 16:08:20 ram Exp $
 ;#
-;#  Copyright (c) 1995-1997, Raphael Manfredi
+;#  Copyright (c) 1995-1998, Raphael Manfredi
 ;#  
 ;#  You may redistribute only under the terms of the Artistic License,
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
-;# Revision 0.5.1.9  1998/05/12  07:13:10  ram
-;# patch9: increased revision number
-;#
-;# Revision 0.5.1.8  1998/04/30  13:05:42  ram
-;# patch8: extended the SYNOPSIS section to give quick overview
-;# patch8: increased revision number
-;#
-;# Revision 0.5.1.7  1998/04/24  15:00:42  ram
-;# patch7: increased revision minor
-;#
-;# Revision 0.5.1.6  1998/04/09  16:06:00  ram
-;# patch6: increased revision number
-;#
-;# Revision 0.5.1.5  1998/04/08  11:12:44  ram
-;# patch5: increased version number
-;#
-;# Revision 0.5.1.4  1998/03/25  13:49:55  ram
-;# patch4: added code example for store_fd() and retrieve_fd()
-;# patch4: increased revision minor
-;#
-;# Revision 0.5.1.3  1998/01/20  08:21:44  ram
-;# patch3: don't use any '_' in version number
-;#
-;# Revision 0.5.1.2  1998/01/13  16:51:10  ram
-;# patch2: added binmode() calls for systems where it matters
-;# patch2: be sure to pass globs, not plain file strings, to C routines
-;#
-;# Revision 0.5.1.1  1997/11/05  09:47:42  ram
-;# patch1: updated version number
-;#
-;# Revision 0.5  1997/06/10  16:38:37  ram
-;# Baseline for fifth alpha release.
+;# Revision 0.6  1998/06/04  16:08:20  ram
+;# Baseline for first beta release.
 ;#
 
 require DynaLoader;
@@ -55,7 +25,7 @@ use AutoLoader;
 use Carp;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.509';
+$VERSION = '0.600';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 bootstrap Storable;
@@ -206,10 +176,11 @@ sub retrieve_fd {
 # thaw
 #
 # Recreate objects in memory from an existing frozen image created
-# by freeze.
+# by freeze.  If the frozen image passed is undef, return undef.
 #
 sub thaw {
 	my ($frozen) = @_;
+	return undef unless defined $frozen;
 	my $self;
 	eval { $self = mretrieve($frozen) };	# Call C routine
 	croak $@ if $@ =~ s/\.?\n$/,/;
@@ -222,28 +193,28 @@ Storable - persistency for perl data structures
 
 =head1 SYNOPSIS
 
-	use Storable;
-	store \%table, 'file';
-	$hashref = retrieve('file');
+ use Storable;
+ store \%table, 'file';
+ $hashref = retrieve('file');
 
-	use Storable qw(nstore store_fd nstore_fd freeze thaw dclone);
+ use Storable qw(nstore store_fd nstore_fd freeze thaw dclone);
 
-	# Network order
-	nstore \%table, 'file';
-	$hashref = retrieve('file');	# There is NO nretrieve()
+ # Network order
+ nstore \%table, 'file';
+ $hashref = retrieve('file');	# There is NO nretrieve()
 
-	# Storing to and retrieving from an already opened file
-	store_fd \@array, \*STDOUT;
-	nstore_fd \%table, \*STDOUT;
-	$aryref = retrieve_fd(\*SOCKET);
-	$hashref = retrieve_fd(\*SOCKET);
+ # Storing to and retrieving from an already opened file
+ store_fd \@array, \*STDOUT;
+ nstore_fd \%table, \*STDOUT;
+ $aryref = retrieve_fd(\*SOCKET);
+ $hashref = retrieve_fd(\*SOCKET);
 
-	# Serializing to memory
-	$serialized = freeze \%table;
-	%table_clone = %{ thaw($serialized) };
+ # Serializing to memory
+ $serialized = freeze \%table;
+ %table_clone = %{ thaw($serialized) };
 
-	# Deep (recursive) cloning
-	$cloneref = dclone($ref);
+ # Deep (recursive) cloning
+ $cloneref = dclone($ref);
 
 =head1 DESCRIPTION
 
@@ -321,15 +292,29 @@ The heart of Storable is written in C for decent speed. Extra low-level
 optimization have been made when manipulating perl internals, to
 sacrifice encapsulation for the benefit of a greater speed.
 
-Storage is usually faster than retrieval since the latter has to
-allocate the objects from memory and perform the relevant I/Os, whilst
-the former mainly performs I/Os.
+Storage is now slower than retrieval since the former has to also
+allocate Perl objects in a hash table to keep track of which objects
+have been stored already, whilst the latter uses an array instead of
+a hash table.
 
 On my HP 9000/712 machine running HPUX 9.03 and with perl 5.004, I can
-store 0.8 Mbyte/s and I can retrieve at 0.72 Mbytes/s, approximatively
+store 0.7 Mbyte/s and I can retrieve at 0.9 Mbytes/s, approximatively
 (CPU + system time).
 This was measured with Benchmark and the I<Magic: The Gathering>
-database from Tom Christiansen (1.9 Mbytes).
+database from Tom Christiansen (1.6 Mbytes).
+
+=head1 CANONICAL REPRESENTATION
+
+Normally Storable stores elements of hashes in the order they are
+stored internally by Perl, i.e. pseudo-randomly.  If you set
+C<$Storable::canonical> to some C<TRUE> value, Storable will store
+hashes with the elements sorted by their key.  This allows you to
+compare data structures by comparing their frozen representations (or
+even the compressed frozen representations), which can be useful for
+creating lookup tables for complicated queries.
+
+Canonical order does not imply network order, those are two orthogonal
+settings.
 
 =head1 EXAMPLES
 
@@ -375,6 +360,13 @@ like those.
 On platforms where it matters, be sure to call C<binmode()> on the
 descriptors that you pass to Storable functions.
 
+Storing data canonically that contains large hashes can be
+significantly slower than storing the same data normally, as
+temprorary arrays to hold the keys for each hash have to be allocated,
+populated, sorted and freed.  Some tests have shown a halving of the
+speed of storing -- the exact penalty will depend on the complexity of
+your data.  There is no slowdown on retrieval.
+
 =head1 BUGS
 
 You can't store GLOB, CODE, FORMLINE, etc... If you can define
@@ -386,10 +378,37 @@ unless you set C<$Storable::forgive_me> to some C<TRUE> value. In that
 case, the fatal message is turned in a warning and some
 meaningless string is stored instead.
 
+Setting C<$Storable::canonical> may not yield frozen strings that
+compare equal due to possible stringification of numbers. When the
+string version of a scalar exists, it is the form stored, therefore
+if you happen to use your numbers as strings between two freezing
+operations on the same data structures, you will get different
+results.
+
 Due to the aforementionned optimizations, Storable is at the mercy
 of perl's internal redesign or structure changes. If that bothers
 you, you can try convincing Larry that what is used in Storable
 should be documented and consistently kept in future revisions.
+
+=head1 CREDITS
+
+Thank you to:
+
+	Jarkko Hietaniemi <jhi@iki.fi>
+	Ulrich Pfeifer <pfeifer@charly.informatik.uni-dortmund.de>
+	Benjamin A. Holzman <benjamin.a.holzman@bender.com>
+	Andrew Ford <andrew@icarus.demon.co.uk>
+	Gisle Aas <gisle@aas.no>
+
+for their bug reports, suggestions and contributions.
+
+Benjamin Holzman contributed the tied variable support, Andrew Ford
+contributed the canonical order for hashes, and Gisle Aas fixed
+a few misunderstandings of mine regarding the Perl internals,
+and optimized the emission of "tags" in the output streams by
+simply counting the objects instead of tagging them (leading to
+a binary incompatibility for the Storable image starting at version
+0.6--older images are of course still properly understood).
 
 =head1 AUTHOR
 

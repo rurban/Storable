@@ -1,3 +1,23 @@
+Thu Jun  4 17:21:51 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Baseline for Storable-0.6@0.
+
+	This version introduces a binary incompatibility in the generated
+	binary image, which is more compact than older ones by approximatively
+	15%, depending on the exact degree of sharing in your structures.
+
+	The good news is that your older images can still be retrieved with
+	this version, i.e. backward compatibility is preserved. This version
+	of Storable can only generate new binaries however.
+
+	Another good news is that the retrieval of data structure is
+	significantly quicker than before, because a Perl array is used
+	instead of a hash table to keep track of retrieved objects, and
+	also because the image being smaller, less I/O function calls are
+	made.
+
 Tue May 12 09:15:15 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:
@@ -39,6 +59,7 @@ Thu Apr  9 18:07:51 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp
 . Description:
 
 	I said SvPOK() had changed to SvPOKp(), but that was a lie...
+
 Wed Apr  8 13:14:29 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:
