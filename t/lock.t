@@ -1,10 +1,14 @@
 #!./perl
 
-# $Id: lock.t,v 2.00 2002/05/18 16:00:59 ams Exp $
+# $Id: lock.t,v 2.02 2002/05/28 20:22:31 ams Exp $
 #
 #  @COPYRIGHT@
 #
 # $Log: lock.t,v $
+# Revision 2.02  2002/05/28 20:22:31  ams
+# 1. Rework file header handling. (Nicholas Clark)
+# 2. Add integer.t and safer integer storing code. (Nicholas Clark)
+#
 # Revision 2.00  2002/05/18 16:00:59  ams
 # Import Storable 2.00 from perl-current.
 #

@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: recurse.t,v 2.00 2002/05/18 16:00:59 ams Exp $
+# $Id: recurse.t,v 2.02 2002/05/28 20:22:31 ams Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
@@ -8,6 +8,10 @@
 #  in the README file that comes with the distribution.
 #  
 # $Log: recurse.t,v $
+# Revision 2.02  2002/05/28 20:22:31  ams
+# 1. Rework file header handling. (Nicholas Clark)
+# 2. Add integer.t and safer integer storing code. (Nicholas Clark)
+#
 # Revision 2.00  2002/05/18 16:00:59  ams
 # Import Storable 2.00 from perl-current.
 #
@@ -17,16 +21,8 @@
 # Revision 1.0.1.2  2000/11/05 17:22:05  ram
 # patch6: stress hook a little more with refs to lexicals
 #
-# $Log: recurse.t,v $
-# Revision 2.00  2002/05/18 16:00:59  ams
-# Import Storable 2.00 from perl-current.
-#
 # Revision 1.0.1.1  2000/09/17 16:48:05  ram
 # patch1: added test case for store hook bug
-#
-# $Log: recurse.t,v $
-# Revision 2.00  2002/05/18 16:00:59  ams
-# Import Storable 2.00 from perl-current.
 #
 # Revision 1.0  2000/09/01 19:40:42  ram
 # Baseline for first official release.

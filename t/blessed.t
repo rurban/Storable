@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: blessed.t,v 2.00 2002/05/18 16:00:59 ams Exp $
+# $Id: blessed.t,v 2.02 2002/05/28 20:22:30 ams Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
@@ -8,6 +8,10 @@
 #  in the README file that comes with the distribution.
 #
 # $Log: blessed.t,v $
+# Revision 2.02  2002/05/28 20:22:30  ams
+# 1. Rework file header handling. (Nicholas Clark)
+# 2. Add integer.t and safer integer storing code. (Nicholas Clark)
+#
 # Revision 2.00  2002/05/18 16:00:59  ams
 # Import Storable 2.00 from perl-current.
 #

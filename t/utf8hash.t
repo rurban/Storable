@@ -1,6 +1,6 @@
 #!./perl
 #
-# $Id: utf8hash.t,v 2.00 2002/05/18 16:00:59 ams Exp $
+# $Id: utf8hash.t,v 2.02 2002/05/28 20:22:31 ams Exp $
 #
 #
 
