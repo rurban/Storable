@@ -1,6 +1,6 @@
 #!./perl
 
-# $Id: utf8.t,v 1.0.1.1 2000/09/17 16:48:12 ram Exp $
+# $Id: utf8.t,v 1.0.1.2 2000/09/28 21:44:17 ram Exp $
 #
 #  Copyright (c) 1995-2000, Raphael Manfredi
 #  
@@ -8,6 +8,9 @@
 #  in the README file that comes with the distribution.
 #
 # $Log: utf8.t,v $
+# Revision 1.0.1.2  2000/09/28 21:44:17  ram
+# patch2: fixed stupid typo
+#
 # Revision 1.0.1.1  2000/09/17 16:48:12  ram
 # patch1: created.
 #
@@ -15,7 +18,7 @@
 
 use Storable qw(thaw freeze);
 
-if ($[ <= 5.006) {
+if ($] < 5.006) {
 	print "1..0\n";
 	exit 0;
 }

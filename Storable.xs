@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 1.0.1.1 2000/09/17 16:47:49 ram Exp $
+ * $Id: Storable.xs,v 1.0.1.2 2000/09/28 21:43:10 ram Exp $
  *
  *  Copyright (c) 1995-2000, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 1.0.1.2  2000/09/28 21:43:10  ram
+ * patch2: perls before 5.004_04 lack newSVpvn
+ *
  * Revision 1.0.1.1  2000/09/17 16:47:49  ram
  * patch1: now only taint retrieved data when source was tainted
  * patch1: added support for UTF-8 strings
@@ -59,7 +62,10 @@
 #define PL_sv_yes	sv_yes
 #define PL_sv_no	sv_no
 #define PL_sv_undef	sv_undef
+#if (SUBVERSION <= 4)		/* 5.004_04 has been reported to lack newSVpvn */
+#define newSVpvn newSVpv
 #endif
+#endif						/* PATCHLEVEL <= 4 */
 #ifndef HvSHAREKEYS_off
 #define HvSHAREKEYS_off(hv)	/* Ignore */
 #endif

@@ -1,3 +1,18 @@
+Thu Sep 28 23:46:39 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
+
+. Description:
+
+	Version 1.0.2.
+
+	Fixed spelling in README.
+
+	Added lock_store, lock_nstore, and lock_retrieve (advisory locking)
+	after a proposal from Erik Haugan <erik@solbors.no>.
+
+	Perls before 5.004_04 lack newSVpvn, added remapping in XS.
+
+	Fixed stupid typo in the t/utf8.t test.
+
 Sun Sep 17 18:51:10 MEST 2000   Raphael Manfredi <Raphael_Manfredi@pobox.com>
 
 . Description:
