@@ -1,3 +1,12 @@
+Mon Jun 22 11:00:48 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Changed benchmark figures.
+
+	Adjust refcnt of tied objects after calling sv_magic() to avoid
+	memory leaks.  Contributed by Jeff Gresham.
+
 Fri Jun 12 11:50:04 METDST 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.6.1.1 1998/06/12 09:45:09 ram Exp $
+;# $Id: Storable.pm,v 0.6.1.2 1998/06/22 08:58:53 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1998, Raphael Manfredi
 ;#  
@@ -6,6 +6,10 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.6.1.2  1998/06/22  08:58:53  ram
+;# patch2: added Jeff Gresham to the list of contributors
+;# patch2: increased revision number
+;#
 ;# Revision 0.6.1.1  1998/06/12  09:45:09  ram
 ;# patch1: increased version number
 ;#
@@ -28,7 +32,7 @@ use AutoLoader;
 use Carp;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.601';
+$VERSION = '0.602';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 bootstrap Storable;
@@ -395,13 +399,14 @@ should be documented and consistently kept in future revisions.
 
 =head1 CREDITS
 
-Thank you to:
+Thank you to (in chronological order):
 
 	Jarkko Hietaniemi <jhi@iki.fi>
 	Ulrich Pfeifer <pfeifer@charly.informatik.uni-dortmund.de>
 	Benjamin A. Holzman <benjamin.a.holzman@bender.com>
-	Andrew Ford <andrew@icarus.demon.co.uk>
+	Andrew Ford <A.Ford@ford-mason.co.uk>
 	Gisle Aas <gisle@aas.no>
+	Jeff Gresham <gresham_jeffrey@jpmorgan.com>
 
 for their bug reports, suggestions and contributions.
 

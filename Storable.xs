@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.6.1.1 1998/06/12 09:46:48 ram Exp $
+ * $Id: Storable.xs,v 0.6.1.2 1998/06/22 09:00:04 ram Exp $
  *
  *  Copyright (c) 1995-1998, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.6.1.2  1998/06/22  09:00:04  ram
+ * patch2: adjust refcnt of tied objects after calling sv_magic()
+ *
  * Revision 0.6.1.1  1998/06/12  09:46:48  ram
  * patch1: added workaround for persistent LVALUE-ness in perl5.004
  * patch1: now handles Perl immortal scalars explicitely
@@ -1372,6 +1375,7 @@ PerlIO *f;
 	sv_upgrade(tv, SVt_PVAV);
 	AvREAL_off((AV *)tv);
 	sv_magic(tv, sv, 'P', Nullch, 0);
+	SvREFCNT_dec(sv);			/* Undo refcnt inc from sv_magic() */
 
 	TRACEME(("ok (retrieve_tied_array at 0x%lx)", (unsigned long) tv));
 
@@ -1400,6 +1404,7 @@ PerlIO *f;
 
 	sv_upgrade(tv, SVt_PVHV);
 	sv_magic(tv, sv, 'P', Nullch, 0);
+	SvREFCNT_dec(sv);			/* Undo refcnt inc from sv_magic() */
 
 	TRACEME(("ok (retrieve_tied_hash at 0x%lx)", (unsigned long) tv));
 
@@ -1428,6 +1433,7 @@ PerlIO *f;
 
 	sv_upgrade(tv, SVt_PVMG);
 	sv_magic(tv, sv, 'q', Nullch, 0);
+	SvREFCNT_dec(sv);			/* Undo refcnt inc from sv_magic() */
 
 	TRACEME(("ok (retrieve_tied_scalar at 0x%lx)", (unsigned long) tv));
 
