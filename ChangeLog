@@ -1,3 +1,9 @@
+Tue Jan 20 09:21:53 MET 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
+
+. Description:
+
+	Don't use any '_' in version number.
+
 Tue Jan 13 17:51:50 MET 1998   Raphael Manfredi <Raphael_Manfredi@grenoble.hp.com>
 
 . Description:

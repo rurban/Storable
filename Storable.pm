@@ -1,4 +1,4 @@
-;# $Id: Storable.pm,v 0.5.1.2 1998/01/13 16:51:10 ram Exp $
+;# $Id: Storable.pm,v 0.5.1.3 1998/01/20 08:21:44 ram Exp $
 ;#
 ;#  Copyright (c) 1995-1997, Raphael Manfredi
 ;#  
@@ -6,6 +6,9 @@
 ;#  as specified in the README file that comes with the distribution.
 ;#
 ;# $Log: Storable.pm,v $
+;# Revision 0.5.1.3  1998/01/20  08:21:44  ram
+;# patch3: don't use any '_' in version number
+;#
 ;# Revision 0.5.1.2  1998/01/13  16:51:10  ram
 ;# patch2: added binmode() calls for systems where it matters
 ;# patch2: be sure to pass globs, not plain file strings, to C routines
@@ -32,7 +35,7 @@ use AutoLoader;
 use Carp;
 use vars qw($forgive_me $VERSION);
 
-$VERSION = '0.5_02';
+$VERSION = '0.503';
 *AUTOLOAD = \&AutoLoader::AUTOLOAD;		# Grrr...
 
 bootstrap Storable;
