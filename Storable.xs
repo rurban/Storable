@@ -3,7 +3,7 @@
  */
 
 /*
- * $Id: Storable.xs,v 0.5.1.2 1998/03/25 13:50:50 ram Exp $
+ * $Id: Storable.xs,v 0.5.1.3 1998/04/08 11:13:35 ram Exp $
  *
  *  Copyright (c) 1995-1997, Raphael Manfredi
  *  
@@ -11,6 +11,9 @@
  *  as specified in the README file that comes with the distribution.
  *
  * $Log: Storable.xs,v $
+ * Revision 0.5.1.3  1998/04/08  11:13:35  ram
+ * patch5: wrote sizeof(SV *) instead of sizeof(I32) when portable
+ *
  * Revision 0.5.1.2  1998/03/25  13:50:50  ram
  * patch4: cannot use SV addresses as tag when using nstore() on LP64
  *
@@ -203,6 +206,10 @@ struct extendable membuf;	/* for memory store/retrieve operations */
 
 #define MBUF_SIZE()	(mptr - mbase)
 
+/*
+ * Use SvPOKp(), because SvPOK() fails on tainted scalars.
+ * See store_scalar() for other usage of this workaround.
+ */
 #define MBUF_LOAD(v) do {				\
 	if (!SvPOK(v))						\
 		croak("Not a scalar string");	\
@@ -833,7 +840,7 @@ SV *sv;
 		if (netorder) {
 			I32 tagval = SvIV(*svh);
 			TRACEME(("object 0x%lx seen as #%d.", (unsigned long) sv, tagval));
-			WRITE(&tagval, sizeof(stag_t));
+			WRITE(&tagval, sizeof(I32));
 		} else {
 			WRITE(&sv, sizeof(SV *));
 			TRACEME(("object 0x%lx seen.", (unsigned long) sv));
