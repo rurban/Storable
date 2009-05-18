@@ -1,10 +1,12 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Storable
-version:      2.18
-version_from: Storable.pm
-installdirs:  perl
-requires:
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.30_01
+--- #YAML:1.0
+name:                Storable
+version:             2.20
+abstract:            ~
+license:             ~
+author:              ~
+generated_by:        ExtUtils::MakeMaker version 6.44
+distribution_type:   module
+requires:     
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
+    version: 1.3
