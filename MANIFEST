@@ -4,7 +4,6 @@ Makefile.PL		    Generic Makefile template
 Storable.pm		    The perl side of Storable
 Storable.xs		    The C side of Storable
 ChangeLog		    Changes since baseline
-hints/hpux.pl		    Hint file to drop to -O1 on HPUX
 hints/linux.pl		    Hint file to drop gcc to -O2
 hints/gnukfreebsd.pl	    Hint file to drop gcc to -O2
 hints/gnuknetbsd.pl	    Hint file to drop gcc to -O2
@@ -52,4 +51,3 @@ t/weak.t		    Can Storable store weakrefs
 t/Test/Builder.pm	    For testing the CPAN release on pre 5.6.2
 t/Test/More.pm		    For testing the CPAN release on pre 5.6.2
 t/Test/Simple.pm	    For testing the CPAN release on pre 5.6.2
-META.yml                                 Module meta-data (added by MakeMaker)

@@ -11,12 +11,7 @@
 #
 
 sub BEGIN {
-    if ($ENV{PERL_CORE}){
-	chdir('t') if -d 't';
-	@INC = ('.', '../lib', '../ext/Storable/t');
-    } else {
-	unshift @INC, 't';
-    }
+    unshift @INC, 't';
     require Config; import Config;
     if ($ENV{PERL_CORE} and $Config{'extensions'} !~ /\bStorable\b/) {
         print "1..0 # Skip: Storable was not built\n";
@@ -60,5 +55,5 @@ $ref2 = dclone $ref;
 ok 5, $a_fetches == 0;
 ok 6, $$ref2 eq $$ref;
 ok 7, $$ref2 == 8;
-# I don't understand why it's 3 and not 2
-ok 8, $a_fetches == 3;
+# a bug in 5.12 and earlier caused an extra FETCH
+ok 8, $a_fetches == 2 || $a_fetches == 3 ;
