@@ -4,6 +4,7 @@ Makefile.PL		    Generic Makefile template
 Storable.pm		    The perl side of Storable
 Storable.xs		    The C side of Storable
 ChangeLog		    Changes since baseline
+hints/hpux.pl		    Hint file to drop gcc to -O1
 hints/linux.pl		    Hint file to drop gcc to -O2
 hints/gnukfreebsd.pl	    Hint file to drop gcc to -O2
 hints/gnuknetbsd.pl	    Hint file to drop gcc to -O2
@@ -48,6 +49,6 @@ t/threads.t                 See if Storable works under ithreads
 t/utf8.t		    See if Storable works
 t/utf8hash.t		    See if Storable works
 t/weak.t		    Can Storable store weakrefs
-t/Test/Builder.pm	    For testing the CPAN release on pre 5.6.2
-t/Test/More.pm		    For testing the CPAN release on pre 5.6.2
-t/Test/Simple.pm	    For testing the CPAN release on pre 5.6.2
+t/compat/Test/Builder.pm    For testing the CPAN release on pre 5.6.2
+t/compat/Test/More.pm	    For testing the CPAN release on pre 5.6.2
+t/compat/Test/Simple.pm	    For testing the CPAN release on pre 5.6.2

@@ -847,7 +847,7 @@ static const char byteorderstr_56[] = {BYTEORDER_BYTES_56, 0};
 #endif
 
 #define STORABLE_BIN_MAJOR	2		/* Binary major "version" */
-#define STORABLE_BIN_MINOR	7		/* Binary minor "version" */
+#define STORABLE_BIN_MINOR	8		/* Binary minor "version" */
 
 #if (PATCHLEVEL <= 5)
 #define STORABLE_BIN_WRITE_MINOR	4
@@ -855,7 +855,7 @@ static const char byteorderstr_56[] = {BYTEORDER_BYTES_56, 0};
 /*
  * Perl 5.6.0 onwards can do weak references.
 */
-#define STORABLE_BIN_WRITE_MINOR	7
+#define STORABLE_BIN_WRITE_MINOR	8
 #endif /* (PATCHLEVEL <= 5) */
 
 #if (PATCHLEVEL < 8 || (PATCHLEVEL == 8 && SUBVERSION < 1))
@@ -2698,7 +2698,10 @@ static int store_code(pTHX_ stcxt_t *cxt, CV *cv)
 	 * Now store the source code.
 	 */
 
-	STORE_SCALAR(SvPV_nolen(text), len);
+	if(SvUTF8 (text))
+		STORE_UTF8STR(SvPV_nolen(text), len);
+	else
+		STORE_SCALAR(SvPV_nolen(text), len);
 
 	FREETMPS;
 	LEAVE;
@@ -5350,7 +5353,7 @@ static SV *retrieve_code(pTHX_ stcxt_t *cxt, const char *cname)
 	dSP;
 	int type, count, tagnum;
 	SV *cv;
-	SV *sv, *text, *sub;
+	SV *sv, *text, *sub, *errsv;
 
 	TRACEME(("retrieve_code (#%d)", cxt->tagnum));
 
@@ -5378,6 +5381,12 @@ static SV *retrieve_code(pTHX_ stcxt_t *cxt, const char *cname)
 	case SX_LSCALAR:
 		text = retrieve_lscalar(aTHX_ cxt, cname);
 		break;
+	case SX_UTF8STR:
+		text = retrieve_utf8str(aTHX_ cxt, cname);
+		break;
+	case SX_LUTF8STR:
+		text = retrieve_lutf8str(aTHX_ cxt, cname);
+		break;
 	default:
 		CROAK(("Unexpected type %d in retrieve_code\n", type));
 	}
@@ -5387,6 +5396,8 @@ static SV *retrieve_code(pTHX_ stcxt_t *cxt, const char *cname)
 	 */
 
 	sub = newSVpvn("sub ", 4);
+	if (SvUTF8(text))
+		SvUTF8_on(sub);
 	sv_catpv(sub, SvPV_nolen(text)); /* XXX no sv_catsv! */
 	SvREFCNT_dec(text);
 
@@ -5416,25 +5427,27 @@ static SV *retrieve_code(pTHX_ stcxt_t *cxt, const char *cname)
 	ENTER;
 	SAVETMPS;
 
+	errsv = get_sv("@", GV_ADD);
+	sv_setpvn(errsv, "", 0);	/* clear $@ */
 	if (SvROK(cxt->eval) && SvTYPE(SvRV(cxt->eval)) == SVt_PVCV) {
-		SV* errsv = get_sv("@", GV_ADD);
-		sv_setpvn(errsv, "", 0);	/* clear $@ */
 		PUSHMARK(sp);
 		XPUSHs(sv_2mortal(newSVsv(sub)));
 		PUTBACK;
 		count = call_sv(cxt->eval, G_SCALAR);
-		SPAGAIN;
 		if (count != 1)
 			CROAK(("Unexpected return value from $Storable::Eval callback\n"));
-		cv = POPs;
-		if (SvTRUE(errsv)) {
-			CROAK(("code %s caused an error: %s",
-				SvPV_nolen(sub), SvPV_nolen(errsv)));
-		}
-		PUTBACK;
 	} else {
-		cv = eval_pv(SvPV_nolen(sub), TRUE);
+		eval_sv(sub, G_SCALAR);
 	}
+	SPAGAIN;
+	cv = POPs;
+	PUTBACK;
+
+	if (SvTRUE(errsv)) {
+		CROAK(("code %s caused an error: %s",
+			SvPV_nolen(sub), SvPV_nolen(errsv)));
+	}
+
 	if (cv && SvROK(cv) && SvTYPE(SvRV(cv)) == SVt_PVCV) {
 	    sv = SvRV(cv);
 	} else {
@@ -6373,14 +6386,17 @@ init_perinterp()
 # Same as pstore(), but network order is used for integers and doubles are
 # emitted as strings.
 
-void
+SV *
 pstore(f,obj)
 OutputStream	f
 SV *	obj
  ALIAS:
   net_pstore = 1
  PPCODE:
-  ST(0) = do_store(aTHX_ f, obj, 0, ix, (SV **)0) ? &PL_sv_yes : &PL_sv_undef;
+  RETVAL = do_store(aTHX_ f, obj, 0, ix, (SV **)0) ? &PL_sv_yes : &PL_sv_undef;
+  /* do_store() can reallocate the stack, so need a sequence point to ensure
+     that ST(0) knows about it. Hence using two statements.  */
+  ST(0) = RETVAL;
   XSRETURN(1);
 
 # mstore
