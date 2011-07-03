@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Storable
-version:            2.25
+version:            2.29
 abstract:           ~
 author:  []
 license:            unknown
