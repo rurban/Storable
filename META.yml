@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Storable
-version:            2.30
+version:            2.35
 abstract:           ~
 author:  []
 license:            unknown
@@ -9,7 +9,8 @@ configure_requires:
     ExtUtils::MakeMaker:  0
 build_requires:
     ExtUtils::MakeMaker:  0
-requires:  {}
+requires:
+    XSLoader:  0
 resources:
     bugtracker:  http://rt.perl.org/perlbug/
 no_index:
