@@ -5,6 +5,7 @@ hints/hpux.pl
 hints/linux.pl
 Makefile.PL
 MANIFEST			This list of files
+ppport.h
 README
 Storable.bs
 Storable.c
@@ -17,6 +18,9 @@ t/blessed.t
 t/canonical.t
 t/circular_hook.t
 t/code.t
+t/compat/Test/Builder.pm
+t/compat/Test/More.pm
+t/compat/Test/Simple.pm
 t/compat01.t
 t/compat06.t
 t/croak.t
