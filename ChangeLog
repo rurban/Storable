@@ -7,6 +7,9 @@ Tue Jun 11 12:05:28 2013 +0200 Salvador <sfandino@yahoo.com>
         Add missing FREETMPS and LEAVE on store_hook.
         Add SX_LVSTRING and SX_VSTRING types (forthcoming)
 
+        With patches from Nicholas Clark and Reini Urban. Fixed problems detected by
+        Reini Urban and Peter Rabbitson.
+
         Fix [perl #118139] crash in global destruction when accessing an already freed
         PL_modglobal or accessing the freed cxt.
 
