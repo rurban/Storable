@@ -28,6 +28,7 @@ BEGIN {
 	exit;
     }
     require File::Spec;
+    no warnings;
     if ($File::Spec::VERSION < 0.8) {
 	print "1..0 # Skip: newer File::Spec needed\n";
 	exit 0;
@@ -60,7 +61,7 @@ local *FOO;
       \&Another::Package::foo,  # code in another package
       sub ($$;$) { 0 },         # prototypes
       sub { print "test\n" },
-      \&Test::More::ok,               # large scalar
+      \&Storable::_store,       # large scalar
      ],
 
      {"a" => sub { "srt" }, "b" => \&code},
@@ -156,6 +157,10 @@ is(prototype($thawed->[4]), prototype($obj[0]->[4]));
 
     for my $i (0 .. 1) {
 	$freezed = freeze $obj[$i];
+        use Data::Dumper;
+        open F, ">/tmp/freezed-$i.pl";
+        print F Dumper($freezed);
+        close F;
 	$@ = "";
 	eval { $thawed  = thaw $freezed };
 	like($@, qr/Can\'t eval/);
@@ -204,7 +209,9 @@ is(prototype($thawed->[4]), prototype($obj[0]->[4]));
 
 {
     my $safe = new Safe;
-    local $Storable::Eval = sub { $safe->reval(shift) };
+    local $Storable::Eval = sub {
+        $safe->reval(shift) or die $@;
+    };
 
     $freezed = freeze $obj[0]->[0];
     $@ = "";

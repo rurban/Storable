@@ -21,7 +21,7 @@ package Storable; @ISA = qw(Exporter);
 
 use vars qw($canonical $forgive_me $VERSION);
 
-$VERSION = '2.30';
+$VERSION = '2.42';
 
 BEGIN {
     if (eval { local $SIG{__DIE__}; require Log::Agent; 1 }) {
@@ -31,13 +31,14 @@ BEGIN {
     # Use of Log::Agent is optional. If it hasn't imported these subs then
     # provide a fallback implementation.
     #
-    else {
+    if (!exists &logcroak) {
         require Carp;
-
         *logcroak = sub {
             Carp::croak(@_);
         };
-
+    }
+    if (!exists &logcarp) {
+	require Carp;
         *logcarp = sub {
           Carp::carp(@_);
         };
@@ -59,17 +60,12 @@ BEGIN {
 	}
 }
 
-sub CLONE {
-    # clone context under threads
-    Storable::init_perinterp();
-}
-
 # By default restricted hashes are downgraded on earlier perls.
 
 $Storable::downgrade_restricted = 1;
 $Storable::accept_future_minor = 1;
 
-XSLoader::load 'Storable', $Storable::VERSION;
+XSLoader::load('Storable', $Storable::VERSION);
 
 #
 # Determine whether locking is possible, but only when needed.
@@ -263,7 +259,7 @@ sub _store {
 	if (!(close(FILE) or undef $ret) || $@) {
 		unlink($file) or warn "Can't unlink $file: $!\n";
 	}
-	logcroak $@ if $@ =~ s/\.?\n$/,/;
+	logcroak $@ if $@ and $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $ret;
 }
@@ -301,7 +297,7 @@ sub _store_fd {
 	my $ret;
 	# Call C routine nstore or pstore, depending on network order
 	eval { $ret = &$xsptr($file, $self) };
-	logcroak $@ if $@ =~ s/\.?\n$/,/;
+        logcroak $@ if $@ and $@ =~  s/\.?\n$/,/;
 	local $\; print $file '';	# Autoflush the file if wanted
 	$@ = $da;
 	return $ret;
@@ -336,7 +332,7 @@ sub _freeze {
 	my $ret;
 	# Call C routine mstore or net_mstore, depending on network order
 	eval { $ret = &$xsptr($self) };
-	logcroak $@ if $@ =~ s/\.?\n$/,/;
+	logcroak $@ if $@ and $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $ret ? $ret : undef;
 }
@@ -378,7 +374,9 @@ sub _retrieve {
 	}
 	eval { $self = pretrieve(*FILE) };		# Call C routine
 	close(FILE);
-	logcroak $@ if $@ =~ s/\.?\n$/,/;
+	logcroak $@ if ($@                                     and
+                        $@ !~ /^Read error: unexpected EOF\b/ and
+                        $@ =~ s/\.?\n$/,/);
 	$@ = $da;
 	return $self;
 }
@@ -395,7 +393,9 @@ sub fd_retrieve {
 	my $self;
 	my $da = $@;							# Could be from exception handler
 	eval { $self = pretrieve($file) };		# Call C routine
-	logcroak $@ if $@ =~ s/\.?\n$/,/;
+	logcroak $@ if ($@                                     and
+                        $@ !~ /^Read error: unexpected EOF\b/ and
+                        $@ =~ s/\.?\n$/,/);
 	$@ = $da;
 	return $self;
 }
@@ -414,10 +414,19 @@ sub thaw {
 	my $self;
 	my $da = $@;							# Could be from exception handler
 	eval { $self = mretrieve($frozen) };	# Call C routine
-	logcroak $@ if $@ =~ s/\.?\n$/,/;
+	logcroak $@ if ($@                                     and
+                        $@ !~ /^Read error: unexpected EOF\b/ and
+                        $@ =~  s/\.?\n$/,/);
 	$@ = $da;
 	return $self;
 }
+
+our $state = '';
+our $last_op_in_netorder = 0;
+
+sub is_storing          { $state eq 'storing'       }
+sub is_retrieving       { $state eq 'retrieving'    }
+sub last_op_in_netorder { $last_op_in_netorder == 1 }
 
 1;
 __END__
@@ -904,8 +913,8 @@ This returns the file format version as number.  It is a string like
 "2.007".  This value is suitable for numeric comparisons.
 
 The constant function C<Storable::BIN_VERSION_NV> returns a comparable
-number that represent the highest file version number that this
-version of Storable fully support (but see discussion of
+number that represents the highest file version number that this
+version of Storable fully supports (but see discussion of
 C<$Storable::accept_future_minor> above).  The constant
 C<Storable::BIN_WRITE_VERSION_NV> function returns what file version
 is written and might be less than C<Storable::BIN_VERSION_NV> in some
@@ -1017,6 +1026,38 @@ compartment:
 
 =for example_testing
         is( $code->(), 42 );
+
+=head1 SECURITY WARNING
+
+B<Do not accept Storable documents from untrusted sources!>
+
+Some features of Storable can lead to security vulnerabilities if you
+accept Storable documents from untrusted sources. Most obviously, the
+optional (off by default) CODE reference serialization feature allows
+transfer of code to the deserializing process. Furthermore, any
+serialized object will cause Storable to helpfully load the module
+corresponding to the class of the object in the deserializing module.
+For manipulated module names, this can load almost arbitrary code.
+Finally, the deserialized object's destructors will be invoked when
+the objects get destroyed in the deserializing process. Maliciously
+crafted Storable documents may put such objects in the value of
+a hash key that is overridden by another key/value pair in the
+same hash, thus causing immediate destructor execution.
+
+In a future version of Storable, we intend to provide options to disable
+loading modules for classes and to disable deserializing objects
+altogether. I<Nonetheless, Storable deserializing documents from
+untrusted sources is expected to have other, yet undiscovered,
+security concerns such as allowing an attacker to cause the deserializer
+to crash hard.>
+
+B<Therefore, let me repeat: Do not accept Storable documents from
+untrusted sources!>
+
+If your application requires accepting data from untrusted sources, you
+are best off with a less powerful and more-likely safe serialization format
+and implementation. If your data is sufficently simple, JSON is a good
+choice and offers maximum interoperability.
 
 =head1 WARNING
 
