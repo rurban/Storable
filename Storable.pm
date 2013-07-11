@@ -1,5 +1,6 @@
 #
-#  Copyright (c) 1995-2000, Raphael Manfredi
+#  Copyright (c) 1995-2001, Raphael Manfredi
+#  Copyright (c) 2002-2013 by the Perl 5 Porters
 #  
 #  You may redistribute only under the same terms as Perl 5, as specified
 #  in the README file that comes with the distribution.
@@ -31,13 +32,13 @@ BEGIN {
     # Use of Log::Agent is optional. If it hasn't imported these subs then
     # provide a fallback implementation.
     #
-    if (!exists &logcroak) {
+    unless ($Storable::{logcroak} && *{$Storable::{logcroak}}{CODE}) {
         require Carp;
         *logcroak = sub {
             Carp::croak(@_);
         };
     }
-    if (!exists &logcarp) {
+    unless ($Storable::{logcarp} && *{$Storable::{logcarp}}{CODE}) {
 	require Carp;
         *logcarp = sub {
           Carp::carp(@_);
@@ -58,6 +59,11 @@ BEGIN {
 			sub LOCK_EX ()	{2}
 		};
 	}
+}
+
+sub CLONE {
+    # clone context under threads
+    Storable::init_perinterp();
 }
 
 # By default restricted hashes are downgraded on earlier perls.
@@ -259,7 +265,7 @@ sub _store {
 	if (!(close(FILE) or undef $ret) || $@) {
 		unlink($file) or warn "Can't unlink $file: $!\n";
 	}
-	logcroak $@ if $@ and $@ =~ s/\.?\n$/,/;
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $ret;
 }
@@ -297,7 +303,7 @@ sub _store_fd {
 	my $ret;
 	# Call C routine nstore or pstore, depending on network order
 	eval { $ret = &$xsptr($file, $self) };
-        logcroak $@ if $@ and $@ =~  s/\.?\n$/,/;
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	local $\; print $file '';	# Autoflush the file if wanted
 	$@ = $da;
 	return $ret;
@@ -306,7 +312,7 @@ sub _store_fd {
 #
 # freeze
 #
-# Store oject and its hierarchy in memory and return a scalar
+# Store object and its hierarchy in memory and return a scalar
 # containing the result.
 #
 sub freeze {
@@ -332,7 +338,7 @@ sub _freeze {
 	my $ret;
 	# Call C routine mstore or net_mstore, depending on network order
 	eval { $ret = &$xsptr($self) };
-	logcroak $@ if $@ and $@ =~ s/\.?\n$/,/;
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $ret ? $ret : undef;
 }
@@ -374,9 +380,7 @@ sub _retrieve {
 	}
 	eval { $self = pretrieve(*FILE) };		# Call C routine
 	close(FILE);
-	logcroak $@ if ($@                                     and
-                        $@ !~ /^Read error: unexpected EOF\b/ and
-                        $@ =~ s/\.?\n$/,/);
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $self;
 }
@@ -393,9 +397,7 @@ sub fd_retrieve {
 	my $self;
 	my $da = $@;							# Could be from exception handler
 	eval { $self = pretrieve($file) };		# Call C routine
-	logcroak $@ if ($@                                     and
-                        $@ !~ /^Read error: unexpected EOF\b/ and
-                        $@ =~ s/\.?\n$/,/);
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $self;
 }
@@ -414,19 +416,10 @@ sub thaw {
 	my $self;
 	my $da = $@;							# Could be from exception handler
 	eval { $self = mretrieve($frozen) };	# Call C routine
-	logcroak $@ if ($@                                     and
-                        $@ !~ /^Read error: unexpected EOF\b/ and
-                        $@ =~  s/\.?\n$/,/);
+	logcroak $@ if $@ =~ s/\.?\n$/,/;
 	$@ = $da;
 	return $self;
 }
-
-our $state = '';
-our $last_op_in_netorder = 0;
-
-sub is_storing          { $state eq 'storing'       }
-sub is_retrieving       { $state eq 'retrieving'    }
-sub last_op_in_netorder { $last_op_in_netorder == 1 }
 
 1;
 __END__
@@ -1056,7 +1049,7 @@ untrusted sources!>
 
 If your application requires accepting data from untrusted sources, you
 are best off with a less powerful and more-likely safe serialization format
-and implementation. If your data is sufficently simple, JSON is a good
+and implementation. If your data is sufficiently simple, JSON is a good
 choice and offers maximum interoperability.
 
 =head1 WARNING
@@ -1170,7 +1163,7 @@ correct behaviour.
 What this means is that if you have data written by Storable 1.x running
 on perl 5.6.0 or 5.6.1 configured with 64 bit integers on Unix or Linux
 then by default this Storable will refuse to read it, giving the error
-I<Byte order is not compatible>.  If you have such data then you you
+I<Byte order is not compatible>.  If you have such data then you
 should set C<$Storable::interwork_56_64bit> to a true value to make this
 Storable read and write files with the old header.  You should also
 migrate your data, or any older perl you are communicating with, to this
@@ -1200,7 +1193,8 @@ Thank you to (in chronological order):
 	Salvador Ortiz Garcia <sog@msg.com.mx>
 	Dominic Dunlop <domo@computer.org>
 	Erik Haugan <erik@solbors.no>
-    Benjamin A. Holzman <ben.holzman@grantstreet.com>
+	Benjamin A. Holzman <ben.holzman@grantstreet.com>
+	Reini Urban <rurban@cpanel.net>
 
 for their bug reports, suggestions and contributions.
 

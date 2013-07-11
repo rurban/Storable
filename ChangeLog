@@ -1,33 +1,13 @@
-+Sat Jul 13 18:34:27 IST 2013   Abhijit Menon-Sen <ams@toroid.org>
-+    Version 2.45
-+
-+       * [perl #118829] Memory leaks in STORABLE_attach
-+         (Vladimir Timofeev)
-+       * [perl #118139] Don't SEGV during global destruction
-+         (Nicholas Clark, report/test from Reini Urban)
-+       * Added security warnings section (Steffen Mueller)
-+       * Update INSTALLDIRS to favour installation in 'site'
-+         (James E Keenan)
- 
-Tue Jun 11 12:05:28 2013 +0200 Salvador <sfandino@yahoo.com>
-    Version 2.42
+Sat Jul 13 18:34:27 IST 2013   Abhijit Menon-Sen <ams@toroid.org>
+    Version 2.45
 
-        Merged rework from https://github.com/salva/perl5 -b improve_storable:
-        Remove pkg_can, pkg_fetchmeth, pkg_hide and pkg_uncache that are not used anymore.
-        Remove recursion from store_blessed calling store_hook calling store_blessed.
-        Add missing FREETMPS and LEAVE on store_hook.
-        Add SX_LVSTRING and SX_VSTRING types (forthcoming)
-
-        With patches from Nicholas Clark and Reini Urban. Fixed problems detected by
-        Reini Urban and Peter Rabbitson.
-
-        Fix [perl #118139] crash in global destruction when accessing an already freed
-        PL_modglobal or accessing the freed cxt.
-
-Fri Nov 30 23:03:09 2012 -0500 Steffen Mueller <smueller@cpan.org>
-    Version 2.40
-
-	Security warnings section added
+       * [perl #118829] Memory leaks in STORABLE_attach
+         (Vladimir Timofeev)
+       * [perl #118139] Don't SEGV during global destruction
+         (Nicholas Clark, report/test from Reini Urban)
+       * Added security warnings section (Steffen Mueller)
+       * Update INSTALLDIRS to favour installation in 'site'
+         (James E Keenan)
 
 Tue 11 Sep 06:51:11 IST 2012   Abhijit Menon-Sen <ams@toroid.org>
     Version 2.39
@@ -125,7 +105,7 @@ Wed Mar 17 15:40:29 GMT 2004   Nicholas Clark <nick@ccl4.org>
         3. Change to no context (should give speedup with ithreads)
 
 Sat Mar 13 20:11:03 GMT 2004   Nicholas Clark <nick@ccl4.org>
-
+	
     Version 2.11
 
         1. Storing restricted hashes in canonical order would SEGV. Fixed.

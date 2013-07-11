@@ -100,7 +100,7 @@ sub test_truncated {
     is (defined ($clone), '', "truncated $what to $i should fail");
     if ($i < $magic_len) {
       like ($@, "/^Magic number checking on storable $what failed/",
-          "Should croak with magic number warning ($i)");
+          "Should croak with magic number warning");
     } else {
       is ($@, "", "Should not set \$\@");
     }
