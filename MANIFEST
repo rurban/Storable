@@ -7,9 +7,6 @@ Makefile.PL
 MANIFEST			This list of files
 ppport.h
 README
-Storable.bs
-Storable.c
-Storable.o
 Storable.pm
 Storable.xs
 t/attach_errors.t
@@ -25,6 +22,7 @@ t/compat01.t
 t/compat06.t
 t/croak.t
 t/dclone.t
+t/destroy.t
 t/downgrade.t
 t/file_magic.t
 t/forgive.t
@@ -56,4 +54,5 @@ t/tied_items.t
 t/utf8.t
 t/utf8hash.t
 t/weak.t
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)
