@@ -54,5 +54,4 @@ t/tied_items.t
 t/utf8.t
 t/utf8hash.t
 t/weak.t
-META.yml                                 Module YAML meta-data (added by MakeMaker)
-META.json                                Module JSON meta-data (added by MakeMaker)
+META.yml                                 Module meta-data (added by MakeMaker)
