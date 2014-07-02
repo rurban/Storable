@@ -1,3 +1,29 @@
+Wed Jul  2 16:25:25 IST 2014   Abhijit Menon-Sen <ams@toroid.org>
+    Version 2.51
+
+	* [perl #121928] Fix memory leak for dclone inside freeze hook
+	  (Alex Solovey)
+	* Do not call DESTROY for empty objects
+	  (Vladimir Timofeev)
+	* Other bugfixes
+
+Sat Jul 13 18:34:27 IST 2013   Abhijit Menon-Sen <ams@toroid.org>
+    Version 2.45
+
+       * [perl #118829] Memory leaks in STORABLE_attach
+         (Vladimir Timofeev)
+       * [perl #118139] Don't SEGV during global destruction
+         (Nicholas Clark, report/test from Reini Urban)
+       * Added security warnings section (Steffen Mueller)
+       * Update INSTALLDIRS to favour installation in 'site'
+         (James E Keenan)
+
+Tue 11 Sep 06:51:11 IST 2012   Abhijit Menon-Sen <ams@toroid.org>
+    Version 2.39
+
+	Various bugfixes, including compatibility fixes for older
+	versions of Perl and vstring handling.
+
 Sun  3 Jul 09:10:11 IST 2011   Abhijit Menon-Sen <ams@toroid.org>
     Version 2.29
 
