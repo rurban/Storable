@@ -20,6 +20,8 @@
 #endif
 
 #if !defined(PERL_VERSION) || PERL_VERSION < 10 || (PERL_VERSION == 10 && PERL_SUBVERSION < 1)
+#define NEED_PL_parser
+#define NEED_sv_2pv_flags
 #define NEED_load_module
 #define NEED_vload_module
 #define NEED_newCONSTSUB
@@ -101,7 +103,7 @@
 
 #define TRACEME(x)                                            \
     STMT_START {                                              \
-        if (SvTRUE(perl_get_sv("Storable::DEBUGME", GV_ADD))) \
+        if (SvTRUE(get_sv("Storable::DEBUGME", GV_ADD))) \
             { PerlIO_stdoutf x; PerlIO_stdoutf("\n"); }       \
     } STMT_END
 #else
@@ -411,7 +413,7 @@ static MAGIC *THX_sv_magicext(pTHX_
 
 #if (PATCHLEVEL <= 4) && (SUBVERSION < 68)
 #define dSTCXT_SV					\
-    SV *perinterp_sv = perl_get_sv(MY_VERSION, 0)
+    SV *perinterp_sv = get_sv(MY_VERSION, 0)
 #else	/* >= perl5.004_68 */
 #define dSTCXT_SV							\
     SV *perinterp_sv = *hv_fetch(PL_modglobal,                          \
@@ -1874,7 +1876,7 @@ static SV *pkg_fetchmeth(pTHX_
 
     gv = gv_fetchmethod_autoload(pkg, method, FALSE);
     if (gv && isGV(gv)) {
-        sv = newRV((SV*) GvCV(gv));
+        sv = newRV_inc((SV*) GvCV(gv));
         TRACEME(("%s->%s: 0x%" UVxf, hvname, method, PTR2UV(sv)));
     } else {
         sv = newSVsv(&PL_sv_undef);
@@ -1999,13 +2001,13 @@ static SV *scalar_call(pTHX_
         for (i = 1; i < cnt; i++) {
             TRACEME(("pushing arg #%d (0x%" UVxf ")...",
                      (int)i, PTR2UV(ary[i])));
-            XPUSHs(sv_2mortal(newRV(ary[i])));
+            XPUSHs(sv_2mortal(newRV_inc(ary[i])));
         }
     }
     PUTBACK;
 
     TRACEME(("calling..."));
-    count = perl_call_sv(hook, flags);	/* Go back to Perl code */
+    count = call_sv(hook, flags);	/* Go back to Perl code */
     TRACEME(("count = %d", count));
 
     SPAGAIN;
@@ -2048,7 +2050,7 @@ static AV *array_call(pTHX_
     XPUSHs(sv_2mortal(newSViv(cloning)));	/* Cloning flag */
     PUTBACK;
 
-    count = perl_call_sv(hook, G_ARRAY);	/* Go back to Perl code */
+    count = call_sv(hook, G_ARRAY);	/* Go back to Perl code */
 
     SPAGAIN;
 
@@ -2582,7 +2584,7 @@ static int store_hash(pTHX_ stcxt_t *cxt, HV *hv)
         && (cxt->canonical == 1
             || (cxt->canonical < 0
                 && (cxt->canonical =
-                    (SvTRUE(perl_get_sv("Storable::canonical", GV_ADD))
+                    (SvTRUE(get_sv("Storable::canonical", GV_ADD))
                      ? 1 : 0))))
 	) {
         /*
@@ -2993,7 +2995,7 @@ static int store_code(pTHX_ stcxt_t *cxt, CV *cv)
         cxt->deparse == 0 ||
         (cxt->deparse < 0 &&
          !(cxt->deparse =
-           SvTRUE(perl_get_sv("Storable::Deparse", GV_ADD)) ? 1 : 0))
+           SvTRUE(get_sv("Storable::Deparse", GV_ADD)) ? 1 : 0))
 	) {
         return store_other(aTHX_ cxt, (SV*)cv);
     }
@@ -3784,7 +3786,7 @@ static int store_other(pTHX_ stcxt_t *cxt, SV *sv)
         cxt->forgive_me == 0 ||
         (cxt->forgive_me < 0 &&
          !(cxt->forgive_me = SvTRUE
-           (perl_get_sv("Storable::forgive_me", GV_ADD)) ? 1 : 0))
+           (get_sv("Storable::forgive_me", GV_ADD)) ? 1 : 0))
 	)
         CROAK(("Can't store %s items", sv_reftype(sv, FALSE)));
 
@@ -4081,7 +4083,7 @@ static int magic_write(pTHX_ stcxt_t *cxt)
         length = sizeof (network_file_header);
     } else {
 #ifdef USE_56_INTERWORK_KLUDGE
-        if (SvTRUE(perl_get_sv("Storable::interwork_56_64bit", GV_ADD))) {
+        if (SvTRUE(get_sv("Storable::interwork_56_64bit", GV_ADD))) {
             header = file_header_56;
             length = sizeof (file_header_56);
         } else
@@ -4672,7 +4674,7 @@ static SV *retrieve_hook(pTHX_ stcxt_t *cxt, const char *cname)
     attach = gv_fetchmethod_autoload(stash, "STORABLE_attach", FALSE);
     if (attach && isGV(attach)) {
         SV* attached;
-        SV* attach_hook = newRV((SV*) GvCV(attach));
+        SV* attach_hook = newRV_inc((SV*) GvCV(attach));
 
         if (av)
             CROAK(("STORABLE_attach called with unexpected references"));
@@ -4773,7 +4775,7 @@ static SV *retrieve_hook(pTHX_ stcxt_t *cxt, const char *cname)
     TRACEME(("calling STORABLE_thaw on %s at 0x%" UVxf " (%" IVdf " args)",
              classname, PTR2UV(sv), (IV) AvFILLp(av) + 1));
 
-    rv = newRV(sv);
+    rv = newRV_inc(sv);
     (void) scalar_call(aTHX_ rv, hook, clone, av, G_SCALAR|G_DISCARD);
     SvREFCNT_dec(rv);
 
@@ -5264,7 +5266,7 @@ static SV *get_lstring(pTHX_ stcxt_t *cxt, UV len, int isutf8, const char *cname
 #else
         if (cxt->use_bytes < 0)
             cxt->use_bytes
-                = (SvTRUE(perl_get_sv("Storable::drop_utf8", GV_ADD))
+                = (SvTRUE(get_sv("Storable::drop_utf8", GV_ADD))
                    ? 1 : 0);
         if (cxt->use_bytes == 0)
             UTF8_CROAK();
@@ -5806,7 +5808,7 @@ static SV *get_lhash(pTHX_ stcxt_t *cxt, UV len, int hash_flags, const char *cna
     if (hash_flags & SHV_RESTRICTED) {
         if (cxt->derestrict < 0)
             cxt->derestrict = (SvTRUE
-                (perl_get_sv("Storable::downgrade_restricted", GV_ADD))
+                (get_sv("Storable::downgrade_restricted", GV_ADD))
                                ? 1 : 0);
         if (cxt->derestrict == 0)
             RESTRICTED_HASH_CROAK();
@@ -5972,7 +5974,7 @@ static SV *retrieve_flag_hash(pTHX_ stcxt_t *cxt, const char *cname)
     if (hash_flags & SHV_RESTRICTED) {
         if (cxt->derestrict < 0)
             cxt->derestrict = (SvTRUE
-                (perl_get_sv("Storable::downgrade_restricted", GV_ADD))
+                (get_sv("Storable::downgrade_restricted", GV_ADD))
                                ? 1 : 0);
         if (cxt->derestrict == 0)
             RESTRICTED_HASH_CROAK();
@@ -6043,7 +6045,7 @@ static SV *retrieve_flag_hash(pTHX_ stcxt_t *cxt, const char *cname)
 #else
                 if (cxt->use_bytes < 0)
                     cxt->use_bytes
-                        = (SvTRUE(perl_get_sv("Storable::drop_utf8", GV_ADD))
+                        = (SvTRUE(get_sv("Storable::drop_utf8", GV_ADD))
                            ? 1 : 0);
                 if (cxt->use_bytes == 0)
                     UTF8_CROAK();
@@ -6159,14 +6161,14 @@ static SV *retrieve_code(pTHX_ stcxt_t *cxt, const char *cname)
      */
 
     if (cxt->eval == NULL) {
-        cxt->eval = perl_get_sv("Storable::Eval", GV_ADD);
+        cxt->eval = get_sv("Storable::Eval", GV_ADD);
         SvREFCNT_inc(cxt->eval);
     }
     if (!SvTRUE(cxt->eval)) {
         if (cxt->forgive_me == 0 ||
             (cxt->forgive_me < 0 &&
              !(cxt->forgive_me = SvTRUE
-               (perl_get_sv("Storable::forgive_me", GV_ADD)) ? 1 : 0))
+               (get_sv("Storable::forgive_me", GV_ADD)) ? 1 : 0))
             ) {
             CROAK(("Can't eval, please set $Storable::Eval to a true value"));
         } else {
@@ -6499,7 +6501,7 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
                      cxt->accept_future_minor));
             if (cxt->accept_future_minor < 0)
                 cxt->accept_future_minor
-                    = (SvTRUE(perl_get_sv("Storable::accept_future_minor",
+                    = (SvTRUE(get_sv("Storable::accept_future_minor",
                                           GV_ADD))
                        ? 1 : 0);
             if (cxt->accept_future_minor == 1)
@@ -6537,7 +6539,7 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
 #ifdef USE_56_INTERWORK_KLUDGE
     /* No point in caching this in the context as we only need it once per
        retrieve, and we need to recheck it each read.  */
-    if (SvTRUE(perl_get_sv("Storable::interwork_56_64bit", GV_ADD))) {
+    if (SvTRUE(get_sv("Storable::interwork_56_64bit", GV_ADD))) {
         if ((c != (sizeof (byteorderstr_56) - 1))
             || memNE(buf, byteorderstr_56, c))
             CROAK(("Byte order is not compatible"));
@@ -6671,7 +6673,7 @@ static SV *retrieve(pTHX_ stcxt_t *cxt, const char *cname)
     } else if (type >= SX_ERROR && cxt->ver_minor > STORABLE_BIN_MINOR) {
         if (cxt->accept_future_minor < 0)
             cxt->accept_future_minor
-                = (SvTRUE(perl_get_sv("Storable::accept_future_minor",
+                = (SvTRUE(get_sv("Storable::accept_future_minor",
                                       GV_ADD))
                    ? 1 : 0);
         if (cxt->accept_future_minor == 1) {

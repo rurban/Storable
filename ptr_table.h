@@ -1,11 +1,12 @@
+#include "ppport.h"
 #if 0
 
 #define ptr_table_new()                    (Perl_ptr_table(aTHX))
-#define ptr_table_find(tbl, sv)            (Perl_ptr_table_find(aTHX_ tbl, sv))
-#define ptr_table_fetch(tbl, sv)           (Perl_ptr_table_fetch(aTHX_ tbl, sv))
-#define ptr_table_store(tbl, oldsv, newsv) (Perl_ptr_table_store(aTHX_ tbl, oldsv, newsv))
-#define ptr_table_split(tbl)               (Perl_ptr_table_split(aTHX_ tbl))
-#define ptr_table_free(tbl)                (Perl_ptr_table_free(aTHX_ tbl))
+#define ptr_table_find(tbl, sv)            (ptr_table_find(tbl, sv))
+#define ptr_table_fetch(tbl, sv)           (ptr_table_fetch(tbl, sv))
+#define ptr_table_store(tbl, oldsv, newsv) (ptr_table_store(tbl, oldsv, newsv))
+#define ptr_table_split(tbl)               (ptr_table_split(tbl))
+#define ptr_table_free(tbl)                (ptr_table_free(tbl))
 
 #else
 #define ptr_table_new()                    (my_ptr_table_new(aTHX))
