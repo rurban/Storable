@@ -1,0 +1,11 @@
+MYMETA.json
+MYMETA.yml
+Makefile
+Makefile.old
+Storable.bs
+Storable.c
+Storable.o
+Storable.obj
+blib/
+pm_to_blib
+storable-testfile.*
