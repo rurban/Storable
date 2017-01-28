@@ -111,7 +111,7 @@
 
 #define TRACEME(x)                                            \
     STMT_START {                                              \
-        if (SvTRUE(get_sv("Storable::DEBUGME", GV_ADD))) \
+        if (SvTRUE(get_sv("Storable::DEBUGME", GV_ADD)))      \
             { PerlIO_stdoutf x; PerlIO_stdoutf("\n"); }       \
     } STMT_END
 #else
@@ -119,13 +119,13 @@
 #endif	/* DEBUGME */
 
 #ifdef DASSERT
-#define ASSERT(x,y)                                                     \
-    STMT_START {                                                        \
-        if (!(x)) {                                                     \
-            PerlIO_stdoutf("ASSERT FAILED (\"%s\", line %d): ",         \
-                           __FILE__, (int)__LINE__);                    \
-            PerlIO_stdoutf y; PerlIO_stdoutf("\n");                     \
-        }                                                               \
+#define ASSERT(x,y)                                              \
+    STMT_START {                                                 \
+        if (!(x)) {                                              \
+            PerlIO_stdoutf("ASSERT FAILED (\"%s\", line %d): ",  \
+                           __FILE__, (int)__LINE__);             \
+            PerlIO_stdoutf y; PerlIO_stdoutf("\n");              \
+        }                                                        \
     } STMT_END
 #else
 #define ASSERT(x,y)
@@ -407,30 +407,30 @@ static MAGIC *THX_sv_magicext(pTHX_
 }
 #endif
 
-#define NEW_STORABLE_CXT_OBJ(cxt)					\
-    STMT_START {							\
-        SV *self = newSV(sizeof(stcxt_t) - 1);                          \
-        SV *my_sv = newRV_noinc(self);                                  \
+#define NEW_STORABLE_CXT_OBJ(cxt)				\
+    STMT_START {						\
+        SV *self = newSV(sizeof(stcxt_t) - 1);                  \
+        SV *my_sv = newRV_noinc(self);                          \
         sv_magicext(self, NULL, PERL_MAGIC_ext, &vtbl_storable, NULL, 0); \
-        cxt = (stcxt_t *)SvPVX(self);                                   \
-        Zero(cxt, 1, stcxt_t);                                          \
-        cxt->my_sv = my_sv;                                             \
+        cxt = (stcxt_t *)SvPVX(self);                           \
+        Zero(cxt, 1, stcxt_t);                                  \
+        cxt->my_sv = my_sv;                                     \
     } STMT_END
 
 #if defined(MULTIPLICITY) || defined(PERL_OBJECT) || defined(PERL_CAPI)
 
 #if (PATCHLEVEL <= 4) && (SUBVERSION < 68)
-#define dSTCXT_SV					\
+#define dSTCXT_SV                                               \
     SV *perinterp_sv = get_sv(MY_VERSION, 0)
 #else	/* >= perl5.004_68 */
-#define dSTCXT_SV							\
-    SV *perinterp_sv = *hv_fetch(PL_modglobal,                          \
+#define dSTCXT_SV						\
+    SV *perinterp_sv = *hv_fetch(PL_modglobal,                  \
 				 MY_VERSION, sizeof(MY_VERSION)-1, TRUE)
 #endif	/* < perl5.004_68 */
 
-#define dSTCXT_PTR(T,name)						\
-    T name = ((perinterp_sv                                             \
-               && SvIOK(perinterp_sv) && SvIVX(perinterp_sv)            \
+#define dSTCXT_PTR(T,name)					\
+    T name = ((perinterp_sv                                     \
+               && SvIOK(perinterp_sv) && SvIVX(perinterp_sv)    \
                ? (T)SvPVX(SvRV(INT2PTR(SV*,SvIVX(perinterp_sv)))) : (T) 0))
 #define dSTCXT					\
     dSTCXT_SV;                                  \
@@ -444,8 +444,8 @@ static MAGIC *THX_sv_magicext(pTHX_
 
 #define SET_STCXT(x)					\
     STMT_START {					\
-        dSTCXT_SV;                                              \
-        sv_setiv(perinterp_sv, PTR2IV(x->my_sv));               \
+        dSTCXT_SV;                                      \
+        sv_setiv(perinterp_sv, PTR2IV(x->my_sv));       \
     } STMT_END
 
 #else /* !MULTIPLICITY && !PERL_OBJECT && !PERL_CAPI */
