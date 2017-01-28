@@ -5250,7 +5250,7 @@ static SV *get_lstring(pTHX_ stcxt_t *cxt, UV len, int isutf8, const char *cname
             "Movable-Type CVE-2015-1592 Storable metasploit attack");
 #else
         Perl_warn(aTHX_
-            "Movable-Type CVE-2015-1592 Storable metasploit attack");
+            "SECURITY: Movable-Type CVE-2015-1592 Storable metasploit attack");
 #endif
     }
 
