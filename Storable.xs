@@ -910,24 +910,6 @@ static const char byteorderstr_56[] = {BYTEORDER_BYTES_56, 0};
 #define PL_sv_placeholder PL_sv_undef
 #endif
 
-#if IVSIZE > 4
-/* can read and write u64 */
-# define MUST_FIT_IN_I32(x)						\
-    STMT_START {							\
-        if ((UV)(x) > (UV)INT64_MAX) {                                  \
-            CROAK(("Storable cannot yet handle overlong strings with len >2G")); \
-        }                                                               \
-    } STMT_END
-#else
-# define MUST_FIT_IN_I32(x)						\
-    STMT_START {							\
-        if ((UV)(x) > (UV)0x7fffffffu) {                                \
-            CROAK(("Storable cannot yet handle overlong strings with len >2G")); \
-        }                                                               \
-    } STMT_END
-#endif
-#define  MUST_FIT_IN_UV(x) MUST_FIT_IN_I32(x)
-
 /*
  * Useful store shortcuts...
  */
@@ -1032,14 +1014,12 @@ static const char byteorderstr_56[] = {BYTEORDER_BYTES_56, 0};
             if (len)                                            \
                 WRITE(pv, ilen);                                \
         } else if (sizeof(len) > 4 && len > INT32_MAX) {        \
-            MUST_FIT_IN_UV(len);                                \
             PUTMARK(SX_LOBJECT);                                \
             PUTMARK(large);                                     \
             W64LEN(len);                                        \
             WRITE(pv, len);                                     \
         } else {                                                \
             int ilen = (int) len;                               \
-            MUST_FIT_IN_I32(len);                               \
             PUTMARK(large);                                     \
             WLEN(ilen);                                         \
             WRITE(pv, ilen);                                    \
@@ -2373,7 +2353,6 @@ static int store_scalar(pTHX_ stcxt_t *cxt, SV *sv)
         }
 #endif
 
-        MUST_FIT_IN_UV(len);
         wlen = (Size_t)len;
         if (SvUTF8 (sv))
             STORE_UTF8STR(pv, wlen);
@@ -2405,7 +2384,6 @@ static int store_array(pTHX_ stcxt_t *cxt, AV *av)
     UV i;
     int ret;
 
-    MUST_FIT_IN_UV(len);
     TRACEME(("store_array (0x%" UVxf ")", PTR2UV(av)));
 
 #ifdef HAS_U64
@@ -2519,21 +2497,24 @@ static int store_hash(pTHX_ stcxt_t *cxt, HV *hv)
                          ) ? 1 : 0);
     unsigned char hash_flags = (SvREADONLY(hv) ? SHV_RESTRICTED : 0);
 
-    MUST_FIT_IN_UV(len);
-
     /* 
      * Signal hash by emitting SX_HASH, followed by the table length.
+     * Max number of keys per perl version:
+     *    IV            - 5.12
+     *    STRLEN  5.14  - 5.24   (size_t: U32/U64)
+     *    SSize_t 5.22c - 5.24c  (I32/I64)
+     *    U32     5.25c -
      */
 
-    if (len > 0x7fffffffu) {
+    if (len > 0x7fffffffu) { /* keys > I32_MAX */
         /* 
          * Large hash: SX_LOBJECT type hashflags? U64 data
          *
          * Stupid limitation:
-         * Note that perl can store more than 2G keys, but only iterate
-         * over 2G max.
-         * We need to manually iterate over it then, unsorted. But
-         * until perl itself cannot do that, skip that.
+         * Note that perl5 can store more than 2G keys, but only iterate
+         * over 2G max. (cperl can)
+         * We need to manually iterate over it then, unsorted.
+         * But until perl itself cannot do that, skip that.
          */
         TRACEME(("lobject size = %lu", (unsigned long)len));
 #ifdef HAS_U64
@@ -2547,6 +2528,8 @@ static int store_hash(pTHX_ stcxt_t *cxt, HV *hv)
         W64LEN(len);
         return store_lhash(aTHX_ cxt, hv, hash_flags);
 #else
+        /* <5.12 you could store larger hashes, but cannot iterate over them.
+           So we reject them, it's a bug. */
         CROAK(("Cannot store large objects on a 32bit system"));
 #endif
     } else {
@@ -2935,7 +2918,7 @@ static int store_hentry(pTHX_
  * store_lhash
  *
  * Store a overlong hash table, with >2G keys, which we cannot iterate
- * over. (xhv_eiter is only I32)
+ * over with perl5. xhv_eiter is only I32 there. (only cperl can)
  * and we also do not want to sort it.
  * So we walk the buckets and chains manually.
  *
@@ -2953,10 +2936,10 @@ static int store_lhash(pTHX_ stcxt_t *cxt, HV *hv, unsigned char hash_flags)
     UV len = (UV)HvTOTALKEYS(hv);
 #endif
     if (hash_flags) {
-        TRACEME(("store_hash (0x%" UVxf ") (flags %x)", PTR2UV(hv),
+        TRACEME(("store_lhash (0x%" UVxf ") (flags %x)", PTR2UV(hv),
                  (int) hash_flags));
     } else {
-        TRACEME(("store_hash (0x%" UVxf ")", PTR2UV(hv)));
+        TRACEME(("store_lhash (0x%" UVxf ")", PTR2UV(hv)));
     }
     TRACEME(("size = %" UVuf ", used = %" UVuf, len, (UV)HvUSEDKEYS(hv)));
 
@@ -5478,9 +5461,12 @@ static SV *retrieve_lobject(pTHX_ stcxt_t *cxt, const char *cname)
     READ(&len, 8);
 #else
     READ(&len, 4);
+    /* little-endian: ignore lower word */
+# if (BYTEORDER == 0x1234 || BYTEORDER == 0x12345678)
+    READ(&len, 4);
+# endif
     if (len > 0)
         CROAK(("Invalid large object for this 32bit system"));
-    READ(&len, 4);
 #endif
     TRACEME(("wlen %" UVuf, len));
     switch (type) {
@@ -5493,16 +5479,22 @@ static SV *retrieve_lobject(pTHX_ stcxt_t *cxt, const char *cname)
     case SX_ARRAY:
         sv = get_larray(aTHX_ cxt, len, cname);
         break;
-#ifdef HAS_U64
+    /* <5.12 you could store larger hashes, but cannot iterate over them.
+       So we reject them, it's a bug. */
     case SX_FLAG_HASH:
+#ifdef HAS_U64
         sv = get_lhash(aTHX_ cxt, len, 1, cname);
-        break;
-    case SX_HASH:
-        sv = get_lhash(aTHX_ cxt, len, 0, cname);
-        break;
 #else
         CROAK(("Invalid large object for this 32bit system"));
 #endif
+        break;
+    case SX_HASH:
+#ifdef HAS_U64
+        sv = get_lhash(aTHX_ cxt, len, 0, cname);
+#else
+        CROAK(("Invalid large object for this 32bit system"));
+#endif
+        break;
     default:
         CROAK(("Unexpected type %d in retrieve_lobject\n", type));
     }
