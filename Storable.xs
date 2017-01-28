@@ -91,6 +91,14 @@
 #  define SvTRULYREADONLY(sv)	(SvREADONLY(sv) && !SvIsCOW(sv))
 #endif
 
+#ifndef SvPVCLEAR
+#  define SvPVCLEAR(sv) sv_setpvs(sv, "")
+#endif
+
+#ifndef strEQc
+#  define strEQc(s,c) memEQ(s, ("" c ""), sizeof(c))
+#endif
+
 #ifdef DEBUGME
 
 #ifndef DASSERT
@@ -5254,8 +5262,13 @@ static SV *get_lstring(pTHX_ stcxt_t *cxt, UV len, int isutf8, const char *cname
     /* Check for CVE-215-1592 */
     if (cname && len == 13 && strEQc(cname, "CGITempFile")
         && strEQc(SvPVX(sv), "mt-config.cgi")) {
+#if defined(USE_CPERL) && defined(WARN_SECURITY)
         Perl_warn_security(aTHX_
-                           "Movable-Type CVE-2015-1592 Storable metasploit attack");
+            "Movable-Type CVE-2015-1592 Storable metasploit attack");
+#else
+        Perl_warn(aTHX_
+            "Movable-Type CVE-2015-1592 Storable metasploit attack");
+#endif
     }
 
     if (isutf8) {
