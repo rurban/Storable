@@ -87,11 +87,11 @@ plan tests => 2 * scalar @cases;
 
 for (@cases) {
     my ($desc, $build) = @$_;
-    note "building test input: $desc";
+    diag "building test input: $desc";
     my ($input, $exn, $clone);
     diag "these huge subtests need a lot of memory and time!" if $desc eq 'huge array';
     $input = $build->();
-    note "running test: $desc";
+    diag "running test: $desc";
     $exn = $@ if !eval { $clone = dclone($input); 1 };
 
     is($exn, undef, "$desc no exception");

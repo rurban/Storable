@@ -71,18 +71,22 @@
 #endif
 
 #ifndef HvRITER_get
-#  define HvRITER_get HvRITER
+#  define HvRITER_get           HvRITER
 #endif
 #ifndef HvEITER_get
-#  define HvEITER_get HvEITER
+#  define HvEITER_get           HvEITER
 #endif
 
 #ifndef HvPLACEHOLDERS_get
-#  define HvPLACEHOLDERS_get HvPLACEHOLDERS
+#  define HvPLACEHOLDERS_get    HvPLACEHOLDERS
 #endif
 
 #ifndef HvTOTALKEYS
 #  define HvTOTALKEYS(hv)	HvKEYS(hv)
+#endif
+/* 5.6 */
+#ifndef HvUSEDKEYS
+#  define HvUSEDKEYS(hv)	HvKEYS(hv)
 #endif
 
 #ifdef SVf_IsCOW
