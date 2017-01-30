@@ -314,18 +314,19 @@ $refcount_ok = 0;
 thaw freeze(Foo3->new);
 is($refcount_ok, 1);
 
-# check stack overflows [cpan #97526]
+# Check stack overflows [cpan #97526]
+# JSON::XS limits this to 512. Small 64bit systems fail with 3000.
 {
     my $t;
-    $t = [$t] for 1..3000;
+    $t = [$t] for 1..550;
     dclone $t;
-    pass "can nest 3000 array refs";
+    pass "can nest 550 array refs";
 }
 {
     my $t;
-    $t = {1=>$t} for 1..3000;
+    $t = {1=>$t} for 1..550;
     dclone $t;
-    pass "can nest 3000 hash refs";
+    pass "can nest 550 hash refs";
 }
 {
     eval {
