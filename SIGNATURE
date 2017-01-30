@@ -1,0 +1,78 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.81.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+SHA1 977e593b9c0eacf8023a7104fd00aef0ef751bf6 ChangeLog
+SHA1 69de2238478a095a8d6e819c6f746010c1cb4b67 MANIFEST
+SHA1 3014b31128d1f085b8f2080196f44e94b493ab7b META.json
+SHA1 07d20e9094de98e0993af36d15bfec1d2abc5ffb META.yml
+SHA1 601dde6d583f456b29cd0c02f7cb15734a7a23eb Makefile.PL
+SHA1 5140ceb0ab23f25355965de41bebbdb3454fd67a README
+SHA1 cc5c839914e180fa88859447299b1836b6c391b8 Storable.pm
+SHA1 a5a4405c34db2ae54ed624bdc86dc3f62ef36b6e Storable.xs
+SHA1 a5a4d9d700d4db05d9e895042b4d036cf2bd53a5 hints/gnukfreebsd.pl
+SHA1 a5a4d9d700d4db05d9e895042b4d036cf2bd53a5 hints/gnuknetbsd.pl
+SHA1 d52f13219125f87082cf62413e2263937f307148 hints/hpux.pl
+SHA1 f4f4bb5ca797bef12c12dd975b4704dd5c2100f4 hints/linux.pl
+SHA1 74b2bc53bf2503b21d7480da208a065c1d447d2c ppport.h
+SHA1 968888dcbdc57a2ce4578f750a874cba267a767c t/HAS_ATTACH.pm
+SHA1 dab2f8dc095dc28b28c4d69b5a982c80ab524011 t/HAS_HOOK.pm
+SHA1 b0d8d6efd2459ea229cc7c01b8536db7aa8fbb7e t/HAS_OVERLOAD.pm
+SHA1 a550be59de12652a227266b3d06688016950de24 t/attach_errors.t
+SHA1 83099196d39595d44856c889381567fea200d887 t/attach_singleton.t
+SHA1 def1dd5ee8f2ba7ca693dbad7c7e460a65270059 t/blessed.t
+SHA1 dd14d7aef8df7e71e9d1bf5022c6a17b8de2bd3c t/canonical.t
+SHA1 5a6a0cb9f03ee27cee6f598cb4e3226fe129b637 t/circular_hook.t
+SHA1 417e7d07b04656a8fa6bb0a8482b1e71ed7979ca t/code.t
+SHA1 1febe2e170ead4f8f5865f31fd72746c03dd3cce t/compat/Test/Builder.pm
+SHA1 51c49a3df7cc24f3507c97c16f11c0f87e6f51e7 t/compat/Test/More.pm
+SHA1 871dd89f9b3404ee836da317db33c61295035f7c t/compat/Test/Simple.pm
+SHA1 cd53a1800ea8ba20c9b32eb96945f7f7689f94a7 t/compat01.t
+SHA1 05997a29f4e26e67e8ecd3b5ac53105dab42a7e2 t/compat06.t
+SHA1 dba0114f150cad69c21792f0b82a8296e36e58a9 t/croak.t
+SHA1 e82c9fe5ca23f86a3e1806336261b3d11c87a140 t/dclone.t
+SHA1 8e7ad3695be9b216cbe5e40d6bbf9faa2eec425e t/downgrade.t
+SHA1 49a3296af0a9774df824249d8e267c2851fd5a34 t/file_magic.t
+SHA1 3ac70dd969a56020abe3173da4bac5acf29ec824 t/forgive.t
+SHA1 b2769c087823bc564ed551a1ccf9495a6899b9c0 t/freeze.t
+SHA1 72c1edc51edd08a424f2c05fd9d07800fec5fe25 t/integer.t
+SHA1 1762e40f2ea1f234c13e483d892573d48df02f14 t/interwork56.t
+SHA1 f9e6ddb5448a341efa7df2cb2874d1ee15b2a15e t/just_plain_nasty.t
+SHA1 b4de7c2660db5a4f97f4b471bd6280722ae35b28 t/lock.t
+SHA1 a7184d5aa19b4215b6625bd56fc0e55338ef2a2f t/make_56_interwork.pl
+SHA1 500d476a09e4c848c872d5b7517a56728e9a8798 t/make_downgrade.pl
+SHA1 f12ffd7ce76d49831afc85f6641ccd53cbd1b746 t/make_overload.pl
+SHA1 de7ef5c9b28577191f237281ac3b8dc7bec0afc3 t/malice.t
+SHA1 3a6c2934c52790f1a294ef58d4843494b48404d9 t/overload.t
+SHA1 92d729b42244e8f2e6077a406cc3cc792f04253b t/recurse.t
+SHA1 77ae02e7bde842a5a07aabba2174805b2bb55001 t/restrict.t
+SHA1 ab0941731b07a01d4a099d7bbd92c0af40146104 t/retrieve.t
+SHA1 791d8d877bcbe842b46b120caf90b138b54090e3 t/sig_die.t
+SHA1 688f0fa023b41e0a061cb75edb466871e298a170 t/st-dump.pl
+SHA1 2f896ecc9554ba5cace4a477bc36df347b9bdac6 t/store.t
+SHA1 a9c5b509ce5dbe5808f028660db5c4464b8660d7 t/testlib.pl
+SHA1 c4c872052f504ac7b8c809e6c7a87533cbcb9efb t/threads.t
+SHA1 efb718df7cd85aaefac65ab5c87dd635c6fda7e3 t/tied.t
+SHA1 b4cb7d92e6d4eaaba3d405ecbb9a184de0ad6653 t/tied_hook.t
+SHA1 f555b6a0d0a1776fdf0837d89c2374b3871fd4f2 t/tied_items.t
+SHA1 53d8d02fc366a9cd82ed378734776f1eb85b2f98 t/utf8.t
+SHA1 0a64587fa427d93ce1f71d3f67851a873babe7d3 t/utf8hash.t
+SHA1 b8d79d7cced2ab81c2bb8fb4409b3b64b40ef727 t/weak.t
+-----BEGIN PGP SIGNATURE-----
+
+iF0EARECAB0WIQRZHhhUcL58V8z0UW2abZJij/3JQgUCWI+L8gAKCRCabZJij/3J
+Qn5uAJ0dQAgtJS9VTW+l7i115S+fjlud7gCfZS1aYlt+5wXCFQwVBTCj0/ccHD8=
+=PPMF
+-----END PGP SIGNATURE-----
