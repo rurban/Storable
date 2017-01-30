@@ -360,11 +360,14 @@ typedef struct stcxt {
     int ver_major;		/* major of version for retrieved object */
     int ver_minor;		/* minor of version for retrieved object */
     SV *(**retrieve_vtbl)(pTHX_ struct stcxt *, const char *);	/* retrieve dispatch table */
-    SV *prev;		/* contexts chained backwards in real recursion */
-    SV *my_sv;		/* the blessed scalar who's SvPVX() I am */
+    SV *prev;			/* contexts chained backwards in real recursion */
+    SV *my_sv;			/* the blessed scalar who's SvPVX() I am */
     int in_retrieve_overloaded; /* performance hack for retrieving overloaded objects */
-    int flags;		/* controls whether to bless or tie objects */
+    int flags;			/* controls whether to bless or tie objects */
+    int ref_cnt;        	/* avoid nested store_ref stack overflows RT #97526 */
 } stcxt_t;
+
+#define MAX_REF_CNT   4000
 
 static int storable_free(pTHX_ SV *sv, MAGIC* mg);
 
@@ -1422,6 +1425,7 @@ static void reset_context(stcxt_t *cxt)
 {
     cxt->entry = 0;
     cxt->s_dirty = 0;
+    cxt->ref_cnt = 0;
     cxt->optype &= ~(ST_STORE|ST_RETRIEVE);	/* Leave ST_CLONE alone */
 }
 
@@ -2138,6 +2142,9 @@ static int store_ref(pTHX_ stcxt_t *cxt, SV *sv)
     } else
         PUTMARK(is_weak ? SX_WEAKREF : SX_REF);
 
+    if (cxt->entry && ++cxt->ref_cnt > MAX_REF_CNT) {
+        CROAK(("Max. recursion depth of nested refs exceeded"));
+    }
     return store(aTHX_ cxt, sv);
 }
 
@@ -4902,6 +4909,9 @@ static SV *retrieve_ref(pTHX_ stcxt_t *cxt, const char *cname)
 
     SvRV_set(rv, sv);		/* $rv = \$sv */
     SvROK_on(rv);
+    if (cxt->entry && ++cxt->ref_cnt > MAX_REF_CNT) {
+        CROAK(("Max. recursion depth of nested refs exceeded"));
+    }
 
     TRACEME(("ok (retrieve_ref at 0x%" UVxf ")", PTR2UV(rv)));
 
