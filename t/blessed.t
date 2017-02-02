@@ -255,7 +255,7 @@ is(ref $t, 'STRESS_THE_STACK');
 my $file = "storable-testfile.$$";
 die "Temporary file '$file' already exists" if -e $file;
 
-#END { while (-f $file) {unlink $file or die "Can't unlink '$file': $!" }}
+END { while (-f $file) {unlink $file or die "Can't unlink '$file': $!" }}
 
 $STRESS_THE_STACK::freeze_count = 0;
 $STRESS_THE_STACK::thaw_count = 0;
