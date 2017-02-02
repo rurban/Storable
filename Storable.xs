@@ -371,7 +371,11 @@ typedef struct stcxt {
 /* Note: We dont count nested scalars. This will have to count all refs
    without any recursion detection. */
 /* JSON::XS has 512 */
-#define MAX_DEPTH   3000
+#if PTRSIZE == 8
+# define MAX_DEPTH   3000
+#else
+# define MAX_DEPTH   1200
+#endif
 #define MAX_DEPTH_ERROR "Max. recursion depth with nested structures exceeded"
 
 static int storable_free(pTHX_ SV *sv, MAGIC* mg);

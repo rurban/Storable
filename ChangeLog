@@ -2,6 +2,8 @@ Thu Feb 2 12:40:44 2017 +0100 Reini Urban <rurban@cpanel.net>
     Version 3.05_05
 
         * Add leak tests for [cpan #97316], [perl #121928]
+        * Limit the max recursion depth to 1200 on 32bit systems.
+        We have no max_depth option yet, as in JSON::XS.
 
 Thu Feb 2 11:59:21 2017 +0100 Reini Urban <rurban@cpanel.net>
     Version 3.05_04
