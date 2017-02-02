@@ -45,6 +45,7 @@ t/testlib.pl		    more helper routines for tests
 t/tied.t		    See if Storable works
 t/tied_hook.t		    See if Storable works
 t/tied_items.t		    See if Storable works
+t/tied_reify.t		    See if retrieve_tied_array works
 t/threads.t                 See if Storable works under ithreads
 t/utf8.t		    See if Storable works
 t/utf8hash.t		    See if Storable works
@@ -52,3 +53,6 @@ t/weak.t		    Can Storable store weakrefs
 t/compat/Test/Builder.pm    For testing the CPAN release on pre 5.6.2
 t/compat/Test/More.pm	    For testing the CPAN release on pre 5.6.2
 t/compat/Test/Simple.pm	    For testing the CPAN release on pre 5.6.2
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)
+SIGNATURE                                Public-key signature (added by MakeMaker)
