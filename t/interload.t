@@ -24,6 +24,7 @@ use Storable 'thaw';
 
 use strict;
 use vars qw(@RESTRICT_TESTS %R_HASH %U_HASH $UTF8_CROAK $RESTRICTED_CROAK);
+use Config;
 
 @RESTRICT_TESTS = ('Locked hash', 'Locked hash placeholder',
                    'Locked keys', 'Locked keys placeholder',
@@ -46,7 +47,7 @@ if ($] > 5.007002) {
   # involving whether scalars are being stored in bytes or in utf8.
   my $a_circumflex = (ord ('A') == 193 ? "\x47" : "\xe5");
   %U_HASH = (map {$_, $_} 'castle', "ch${a_circumflex}teau", $utf8, chr 0x57CE);
-  plan tests => 146;
+  plan tests => 335;
 } elsif ($] >= 5.006) {
   plan tests => 59;
 } else {
@@ -140,15 +141,21 @@ sub test_restricted_hash {
 sub test_placeholder {
   my $hash = shift;
   eval {$hash->{rules} = 42};
-  is ($@, '', 'No errors');
-  is ($hash->{rules}, 42, "New value added");
+  if (is ($@, '', 'No errors')) {
+    is ($hash->{rules}, 42, "New value added");
+  } else {
+    ok(1, "skip placeholder");
+  }
 }
 
 sub test_newkey {
   my $hash = shift;
   eval {$hash->{nms} = "http://nms-cgi.sourceforge.net/"};
-  is ($@, '', 'No errors');
-  is ($hash->{nms}, "http://nms-cgi.sourceforge.net/", "New value added");
+  if (is ($@, '', 'No errors')) {
+    is ($hash->{nms}, "http://nms-cgi.sourceforge.net/", "New value added");
+  } else {
+    ok(1, "skip newkey");
+  }
 }
 
 # $Storable::DEBUGME = 1;

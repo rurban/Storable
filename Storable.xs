@@ -6609,9 +6609,18 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
 #endif
     {
         if ((c != (sizeof (byteorderstr) - 1))
-            || memNE(buf, byteorderstr, c)) {
-            Perl_warn(aTHX_ "Byte order is not compatible");
-            /* check if le/be is compatible or need to set netorder */
+            || memNE(buf, byteorderstr, c))
+        {
+            /* Check if le/be is compatible or need to set netorder.
+               So we only got the limitation that BE cannot read LE files,
+               but vice versa intel can read everything.
+             */
+#if (BYTEORDER == 0x4321 || BYTEORDER == 0x87654321)
+            if (memEQ(buf, "1234", 4))
+                CROAK((aTHX_ "Byte order is not compatible"));
+#endif            
+            if (memEQ(buf, "8765", 4) || memEQ(buf, "4321", 4))
+                cxt->netorder = 1;
         }
     }
 
@@ -6622,12 +6631,14 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
     if (use_NV_size)
         cxt->dblsize = *current++;
 
+    /*
     if (cxt->intsize != sizeof(int))
         Perl_warn(aTHX_ "Integer size is not compatible");
     if (cxt->longsize != sizeof(long))
         Perl_warn(aTHX_ "Long integer size is not compatible");
     if (cxt->ptrsize != sizeof(char *))
         Perl_warn(aTHX_ "Pointer size is not compatible");
+    */
     if (use_NV_size)
         if (cxt->dblsize != sizeof(NV))
             CROAK(("Double size is not compatible"));
