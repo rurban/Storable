@@ -352,6 +352,10 @@ typedef struct stcxt {
     unsigned char flags;	/* controls whether to bless or tie objects */
     signed char ver_major;	/* major of version for retrieved object */
     unsigned char ver_minor;	/* minor of version for retrieved object */
+    unsigned char intsize;	/* int size for retrieved object */
+    unsigned char longsize;	/* long size for retrieved object */
+    unsigned char ptrsize;	/* ptrsize for retrieved object */
+    unsigned char dblsize;	/* double size for retrieved object */
     signed char netorder;	/* true if network order used */
     signed char s_tainted;	/* true if input source is tainted, at retrieve time */
     signed char forgive_me;	/* whether to be forgiving... */
@@ -6473,7 +6477,7 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
     unsigned char *current;
     int c;
     int length;
-    unsigned char use_network_order;
+    signed char use_network_order;
     unsigned char use_NV_size;
     unsigned char old_magic = 0;
     int version_major;
@@ -6497,11 +6501,8 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
         current = buf + --len;	/* Do the -- outside of macros.  */
 
         if (memNE(buf, magicstr, len)) {
-            /*
-             * Try to read more bytes to check for the old magic number, which
-             * was longer.
-             */
-
+            /* Try to read more bytes to check for the old magic number, which
+               was longer. */
             TRACEME(("trying for old magic number"));
 
             old_len = sizeof(old_magicstr) - 1;
@@ -6588,14 +6589,11 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
         return &PL_sv_undef;			/* No byte ordering info */
 
     /* In C truth is 1, falsehood is 0. Very convenient.  */
-    use_NV_size = version_major >= 2 && version_minor >= 2;
-
-    if (version_major >= 0) {
+    use_NV_size = (version_major >= 2 && version_minor >= 2);
+    if (version_major >= 0)
         GETMARK(c);
-    }
-    else {
+    else
         c = use_network_order;
-    }
     length = c + 3 + use_NV_size;
     READ(buf, length);	/* Not null-terminated */
     TRACEME(("byte order '%.*s' %d", c, buf, c));
@@ -6611,29 +6609,28 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
 #endif
     {
         if ((c != (sizeof (byteorderstr) - 1))
-          || memNE(buf, byteorderstr, c))
-            CROAK(("Byte order is not compatible"));
+            || memNE(buf, byteorderstr, c)) {
+            Perl_warn(aTHX_ "Byte order is not compatible");
+            /* check if le/be is compatible or need to set netorder */
+        }
     }
 
     current = buf + c;
+    cxt->intsize  = *current++;
+    cxt->longsize = *current++;
+    cxt->ptrsize  = *current++;
+    if (use_NV_size)
+        cxt->dblsize = *current++;
 
-    /* sizeof(int) */
-    if ((int) *current++ != sizeof(int))
-        CROAK(("Integer size is not compatible"));
-
-    /* sizeof(long) */
-    if ((int) *current++ != sizeof(long))
-        CROAK(("Long integer size is not compatible"));
-
-    /* sizeof(char *) */
-    if ((int) *current != sizeof(char *))
-        CROAK(("Pointer size is not compatible"));
-
-    if (use_NV_size) {
-        /* sizeof(NV) */
-        if ((int) *++current != sizeof(NV))
+    if (cxt->intsize != sizeof(int))
+        Perl_warn(aTHX_ "Integer size is not compatible");
+    if (cxt->longsize != sizeof(long))
+        Perl_warn(aTHX_ "Long integer size is not compatible");
+    if (cxt->ptrsize != sizeof(char *))
+        Perl_warn(aTHX_ "Pointer size is not compatible");
+    if (use_NV_size)
+        if (cxt->dblsize != sizeof(NV))
             CROAK(("Double size is not compatible"));
-    }
 
     return &PL_sv_undef;	/* OK */
 }

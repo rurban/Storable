@@ -15,6 +15,7 @@ WriteMakefile(
 #    PREREQ_PM           => { 'Test::More' => '0.41' },
     PREREQ_PM           => { XSLoader => 0 },
     INSTALLDIRS => ($] >= 5.007 && $] < 5.012) ? 'perl' : 'site',
+    CCFLAGS             => $Config{ccflags} . ' -Wall -Wextra',
     VERSION_FROM        => 'Storable.pm',
     ($ExtUtils::MakeMaker::VERSION > 6.45 ?
      (META_MERGE        => { resources =>
