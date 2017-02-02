@@ -9,3 +9,8 @@ Storable.obj
 blib/
 pm_to_blib
 storable-testfile.*
+.gdb
+.gdbinit
+Storable-*.tar.gz
+*.diff
+*.patch
