@@ -27,8 +27,8 @@ use Storable qw(freeze thaw store retrieve);
 
 %::immortals =
     ('u' => \undef,
-     'y' => \(1 == 1),
-     'n' => \(1 == 0)
+     'y' => \(!!1),  # yes
+     'n' => \(!!0)   # no
 );
 
 
