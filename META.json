@@ -4,7 +4,7 @@
       "unknown"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 8.0403, CPAN::Meta::Converter version 2.150010",
+   "generated_by" : "ExtUtils::MakeMaker version 7.24, CPAN::Meta::Converter version 2.150010",
    "license" : [
       "unknown"
    ],
@@ -36,12 +36,12 @@
          }
       }
    },
-   "release_status" : "testing",
+   "release_status" : "unstable",
    "resources" : {
       "bugtracker" : {
          "web" : "http://rt.perl.org/perlbug/"
       }
    },
-   "version" : "3.05_03",
-   "x_serialization_backend" : "JSON::PP version 2.27400"
+   "version" : "3.05_04",
+   "x_serialization_backend" : "JSON::PP version 2.27300"
 }

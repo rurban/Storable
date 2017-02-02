@@ -5078,7 +5078,6 @@ static SV *retrieve_tied_array(pTHX_ stcxt_t *cxt, const char *cname)
         return (SV *) 0;		/* Failed */
 
     sv_upgrade(tv, SVt_PVAV);
-    AvREAL_off((AV *)tv);
     sv_magic(tv, sv, 'P', (char *)NULL, 0);
     SvREFCNT_dec(sv);			/* Undo refcnt inc from sv_magic() */
 

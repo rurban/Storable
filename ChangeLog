@@ -1,3 +1,11 @@
+Thu Feb 2 11:59:21 2017 +0100 Reini Urban <rurban@cpanel.net>
+    Version 3.05_04
+
+        * Fix retrieve_tied_array which fails since 5.16
+        [cpan #84705]
+        * Improve t/blessed.t in the creation of sv_yes/sv_no
+        with threaded perls.
+
 Tue Jan 31 02:55:30 2017 +0100 Reini Urban <rurban@cpanel.net>
     Version 3.05_03
 
