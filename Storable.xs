@@ -217,7 +217,7 @@
  * keys are not enough a motivation to reclaim that space).
  *
  * This structure is also used for memory store/retrieve operations which
- * happen in a fixed place before being malloc'ed elsewhere if persistence
+ * happen in a fixed place before being malloced elsewhere if persistence
  * is required. Hence the aptr pointer.
  */
 struct extendable {
@@ -336,36 +336,37 @@ typedef struct stcxt {
     HV *hclass;			/* which classnames have been seen, store time */
     AV *aclass;			/* which classnames have been seen, retrieve time */
     HV *hook;			/* cache for hook methods per class name */
+    SV *eval;			/* whether to eval source code */
     IV tagnum;			/* incremented at store time for each seen object */
     IV classnum;		/* incremented at store time for each seen classname */
-    int netorder;		/* true if network order used */
-    int s_tainted;		/* true if input source is tainted, at retrieve time */
-    int forgive_me;		/* whether to be forgiving... */
-    int deparse;		/* whether to deparse code refs */
-    SV *eval;			/* whether to eval source code */
-    int canonical;		/* whether to store hashes sorted by key */
-#ifndef HAS_RESTRICTED_HASHES
-    int derestrict;		/* whether to downgrade restricted hashes */
-#endif
-#ifndef HAS_UTF8_ALL
-    int use_bytes;		/* whether to bytes-ify utf8 */
-#endif
-    int accept_future_minor;	/* croak immediately on future minor versions?  */
-    int s_dirty;		/* context is dirty due to CROAK() -- can be cleaned */
-    int membuf_ro;		/* true means membuf is read-only and msaved is rw */
     struct extendable keybuf;	/* for hash key retrieval */
     struct extendable membuf;	/* for memory store/retrieve operations */
     struct extendable msaved;	/* where potentially valid mbuf is saved */
     PerlIO *fio;		/* where I/O are performed, NULL for memory */
-    int ver_major;		/* major of version for retrieved object */
-    int ver_minor;		/* minor of version for retrieved object */
     SV *(**retrieve_vtbl)(pTHX_ struct stcxt *, const char *);	/* retrieve dispatch table */
     SV *prev;			/* contexts chained backwards in real recursion */
     SV *my_sv;			/* the blessed scalar who's SvPVX() I am */
-    int in_retrieve_overloaded; /* performance hack for retrieving overloaded objects */
-    int flags;			/* controls whether to bless or tie objects */
+    U16 rv_depth;        	/* avoid stack overflows RT #97526 */
     U16 av_depth;        	/* avoid stack overflows RT #97526 */
     U16 hv_depth;        	/* avoid stack overflows RT #97526 */
+    unsigned char flags;	/* controls whether to bless or tie objects */
+    signed char ver_major;	/* major of version for retrieved object */
+    unsigned char ver_minor;	/* minor of version for retrieved object */
+    signed char netorder;	/* true if network order used */
+    signed char s_tainted;	/* true if input source is tainted, at retrieve time */
+    signed char forgive_me;	/* whether to be forgiving... */
+    signed char deparse;	/* whether to deparse code refs */
+    signed char canonical;	/* whether to store hashes sorted by key */
+#ifndef HAS_RESTRICTED_HASHES
+    signed char derestrict;	/* whether to downgrade restricted hashes */
+#endif
+#ifndef HAS_UTF8_ALL
+    signed char use_bytes;	/* whether to bytes-ify utf8 */
+#endif
+    signed char accept_future_minor; /* croak immediately on future minor versions?  */
+    signed char s_dirty;	/* context is dirty due to CROAK() -- can be cleaned */
+    signed char membuf_ro;	/* true means membuf is read-only and msaved is rw */
+    signed char in_retrieve_overloaded; /* performance hack for retrieving overloaded objects */
 } stcxt_t;
 
 /* Note: We dont count nested scalars. This will have to count all refs
@@ -652,6 +653,13 @@ static stcxt_t *Context_ptr = NULL;
     STMT_START {				\
         if (mptr < mend)                        \
             x = (int) (unsigned char) *mptr++;  \
+        else                                    \
+            return (SV *) 0;                    \
+    } STMT_END
+#define MBUF_GETCB(x)				\
+    STMT_START {				\
+        if (mptr < mend)                        \
+            x = (unsigned char) *mptr++;        \
         else                                    \
             return (SV *) 0;                    \
     } STMT_END
@@ -1062,6 +1070,9 @@ static const char byteorderstr_56[] = {BYTEORDER_BYTES_56, 0};
 #define GETCHAR() \
     (cxt->fio ? PerlIO_getc(cxt->fio)                   \
               : (mptr >= mend ? EOF : (int) *mptr++))
+#define GETCHARB() \
+    (cxt->fio ? (unsigned char)PerlIO_getc(cxt->fio)    \
+              : (mptr >= mend ? EOF : *mptr++))
 
 #define GETMARK(x)							\
     STMT_START {							\
@@ -1069,6 +1080,19 @@ static const char byteorderstr_56[] = {BYTEORDER_BYTES_56, 0};
             MBUF_GETC(x);                                               \
         else if ((int) (x = PerlIO_getc(cxt->fio)) == EOF)              \
             return (SV *) 0;                                            \
+    } STMT_END
+
+#define GETMARKB(x)							\
+    STMT_START {							\
+        if (!cxt->fio)                                                  \
+            MBUF_GETCB(x);                                              \
+        else {                                                          \
+            int _x = PerlIO_getc(cxt->fio);                             \
+            if (_x == EOF)                                              \
+                return (SV *) 0;                                        \
+            else                                                        \
+                x = (unsigned char)_x;                                  \
+        }                                                               \
     } STMT_END
 
 #define READ_I32(x)							\
@@ -4025,7 +4049,7 @@ static int store(pTHX_ stcxt_t *cxt, SV *sv)
 
     type = sv_type(aTHX_ sv);
 
- undef_special_case:
+  undef_special_case:
     TRACEME(("storing 0x%" UVxf " tag #%d, type %d...",
              PTR2UV(sv), (int)cxt->tagnum, (int)type));
 
@@ -4047,7 +4071,7 @@ static int store(pTHX_ stcxt_t *cxt, SV *sv)
  *
  * Write magic number and system information into the file.
  * Layout is <magic> <network> [<len> <byteorder> <sizeof int> <sizeof long>
- * <sizeof ptr>] where <len> is the length of the byteorder hexa string.
+ * <sizeof ptr>] where <len> is the length of the byteorder hex string.
  * All size and lengths are written as single characters here.
  *
  * Note that no byte ordering info is emitted when <network> is true, since
@@ -5488,13 +5512,13 @@ static SV *retrieve_integer(pTHX_ stcxt_t *cxt, const char *cname)
 static SV *retrieve_lobject(pTHX_ stcxt_t *cxt, const char *cname)
 {
     SV *sv;
-    int type;
     UV  len;
+    unsigned char type;
 
     TRACEME(("retrieve_lobject (#%d)", (int)cxt->tagnum));
 
-    GETMARK(type);
-    TRACEME(("object type %d", type));
+    GETMARKB(type);
+    TRACEME(("object type %c", type));
 #ifdef HAS_U64
     READ(&len, 8);
 #else
@@ -6449,9 +6473,9 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
     unsigned char *current;
     int c;
     int length;
-    int use_network_order;
-    int use_NV_size;
-    int old_magic = 0;
+    unsigned char use_network_order;
+    unsigned char use_NV_size;
+    unsigned char old_magic = 0;
     int version_major;
     int version_minor = 0;
 
@@ -6490,7 +6514,7 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
         }
         use_network_order = *current;
     } else {
-        GETMARK(use_network_order);
+        GETMARKB(use_network_order);
     }
 
     /*
@@ -6505,10 +6529,10 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
     else {
         version_major = use_network_order >> 1;
     }
-    cxt->retrieve_vtbl = (SV*(**)(pTHX_ stcxt_t *cxt, const char *cname)) (version_major > 0 ? sv_retrieve : sv_old_retrieve);
+    cxt->retrieve_vtbl = (SV*(**)(pTHX_ stcxt_t *cxt, const char *cname))
+        (version_major > 0 ? sv_retrieve : sv_old_retrieve);
 
     TRACEME(("magic_check: netorder = 0x%x", use_network_order));
-
 
     /*
      * Starting with 0.7 (binary major 2), a full byte is dedicated to the
@@ -6530,11 +6554,10 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
      * failure reporting a "corrupted" storable file.
      */
 
-    if (
-        version_major > STORABLE_BIN_MAJOR ||
-        (version_major == STORABLE_BIN_MAJOR &&
-         version_minor > STORABLE_BIN_MINOR)
-        ) {
+    if (version_major > STORABLE_BIN_MAJOR ||
+        (version_major == STORABLE_BIN_MAJOR
+         && version_minor > STORABLE_BIN_MINOR))
+    {
         int croak_now = 1;
         TRACEME(("but I am version is %d.%d", STORABLE_BIN_MAJOR,
                  STORABLE_BIN_MINOR));
@@ -6545,7 +6568,7 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
             if (cxt->accept_future_minor < 0)
                 cxt->accept_future_minor
                     = (SvTRUE(get_sv("Storable::accept_future_minor",
-                                          GV_ADD))
+                                     GV_ADD))
                        ? 1 : 0);
             if (cxt->accept_future_minor == 1)
                 croak_now = 0;  /* Don't croak yet.  */
@@ -6561,8 +6584,7 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
      * If they stored using network order, there's no byte ordering
      * information to check.
      */
-
-    if ((cxt->netorder = (use_network_order & 0x1)))	/* Extra () for -Wall */
+    if ((cxt->netorder = (use_network_order & 0x1)))
         return &PL_sv_undef;			/* No byte ordering info */
 
     /* In C truth is 1, falsehood is 0. Very convenient.  */
@@ -6576,7 +6598,6 @@ static SV *magic_check(pTHX_ stcxt_t *cxt)
     }
     length = c + 3 + use_NV_size;
     READ(buf, length);	/* Not null-terminated */
-
     TRACEME(("byte order '%.*s' %d", c, buf, c));
 
 #ifdef USE_56_INTERWORK_KLUDGE
@@ -6694,7 +6715,6 @@ static SV *retrieve(pTHX_ stcxt_t *cxt, const char *cname)
      */
 
     GETMARK(type);
-
     TRACEME(("retrieve type = %d", type));
 
     /*
@@ -6722,7 +6742,7 @@ static SV *retrieve(pTHX_ stcxt_t *cxt, const char *cname)
         if (cxt->accept_future_minor == 1) {
             CROAK(("Storable binary image v%d.%d contains data of type %d. "
                    "This Storable is v%d.%d and can only handle data types up to %d",
-                   cxt->ver_major, cxt->ver_minor, type,
+                   (int)cxt->ver_major, (int)cxt->ver_minor, type,
                    STORABLE_BIN_MAJOR, STORABLE_BIN_MINOR, SX_ERROR - 1));
         }
     }

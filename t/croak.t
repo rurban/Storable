@@ -29,10 +29,10 @@ print "1..2\n";
 for my $test (1,2) {
   eval {thaw "\xFF\xFF"};
   if ($@ =~ /Storable binary image v127.255 more recent than I am \(v2\.\d+\)/)
-    {
-      print "ok $test\n";
-    } else {
-      chomp $@;
-      print "not ok $test # Expected a meaningful croak. Got '$@'\n";
-    }
+  {
+    print "ok $test\n";
+  } else {
+    chomp $@;
+    print "not ok $test # Expected a meaningful croak. Got '$@'\n";
+  }
 }

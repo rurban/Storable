@@ -41,7 +41,7 @@ use Test::More;
 
 # If it's 5.7.3 or later the hash will be stored with flags, which is
 # 2 extra bytes. There are 2 * 2 * 2 tests per byte in the body and header
-# common to normal and network order serialised objects (hence the 8)
+# common to normal and network order serialised objects (hence the 8).
 # There are only 2 * 2 tests per byte in the parts of the header not present
 # for network order, and 2 tests per byte on the 'pst0' "magic number" only
 # present in files, but not in things store()ed to memory
