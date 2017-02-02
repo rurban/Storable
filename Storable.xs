@@ -4115,10 +4115,10 @@ static int magic_write(pTHX_ stcxt_t *cxt)
             length = sizeof (file_header_56);
         } else
 #endif
-            {
-                header = file_header;
-                length = sizeof (file_header);
-            }
+        {
+            header = file_header;
+            length = sizeof (file_header);
+        }
     }
 
     if (!cxt->fio) {
