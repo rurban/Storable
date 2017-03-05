@@ -1,7 +1,8 @@
 #
 #  Copyright (c) 1995-2001, Raphael Manfredi
 #  Copyright (c) 2002-2014 by the Perl 5 Porters
-#  Copyright (c) 2015-2017 cPanel Inc
+#  Copyright (c) 2015-2016 cPanel Inc
+#  Copyright (c) 2017 Reini Urban
 #
 #  You may redistribute only under the same terms as Perl 5, as specified
 #  in the README file that comes with the distribution.
@@ -24,7 +25,7 @@ package Storable; @ISA = qw(Exporter);
 
 use vars qw($canonical $forgive_me $VERSION $XS_VERSION);
 
-$VERSION = '3.05_04';
+$VERSION = '3.05_06';
 $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -864,13 +865,11 @@ There are a few things you need to know, however:
 
 =over 4
 
-=item *
-
-Since Storable 3.05 we added a hard recursion limit for arrays and hashes to
-a maximal depth of 3000, otherwise we might fall into a stack-overflow.
-On JSON::XS this limit is 512 btw.
-With scalars referencing each other there's no such limit yet, so you might
-fall into such a stack-overflow.
+Since Storable 3.05 we added a hard recursion limit for references,
+arrays and hashes to a maximal depth of 1200-2000, otherwise we might
+fall into a stack-overflow.  On JSON::XS this limit is 512 btw.  With
+references not immediately referencing each other there's no such
+limit yet, so you might fall into such a stack-overflow.
 
 =item *
 
@@ -1105,7 +1104,7 @@ If your application requires accepting data from untrusted sources,
 you are best off with a less powerful and more-likely safe
 serialization format and implementation. If your data is sufficiently
 simple, Cpanel::JSON::XS, Data::MessagePack or Serial are the best
-choices and offers maximum interoperability, but not that Serial is
+choices and offers maximum interoperability, but note that Serial is
 unsafe by default.
 
 =head1 WARNING
@@ -1250,7 +1249,7 @@ Thank you to (in chronological order):
 	Dominic Dunlop <domo@computer.org>
 	Erik Haugan <erik@solbors.no>
 	Benjamin A. Holzman <ben.holzman@grantstreet.com>
-	Reini Urban <rurban@cpanel.net>
+	Reini Urban <rurban@cpan.org>
 	Todd Rinaldo <toddr@cpanel.net>
 	Aaron Crane <arc@cpan.org>
 
@@ -1274,7 +1273,7 @@ and huge object support.
 
 Storable was written by Raphael Manfredi
 F<E<lt>Raphael_Manfredi@pobox.comE<gt>>
-Maintenance is now done by cperl L<http://perl11.org/cperl>.
+Maintenance is now done by cperl L<http://perl11.org/cperl>
 
 Please e-mail us with problems, bug fixes, comments and complaints,
 although if you have compliments you should send them to Raphael.

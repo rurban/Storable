@@ -42,6 +42,6 @@
          "web" : "http://rt.perl.org/perlbug/"
       }
    },
-   "version" : "3.05_04",
-   "x_serialization_backend" : "JSON::PP version 2.27300"
+   "version" : "3.05_06",
+   "x_serialization_backend" : "JSON::PP version 2.27300_01"
 }

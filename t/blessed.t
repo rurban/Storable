@@ -86,7 +86,6 @@ is($@, '');
 
 # Construct a pool of objects
 my @pool;
-
 for (my $i = 0; $i < 10; $i++) {
     push(@pool, SHORT_NAME->make);
     push(@pool, SHORT_NAME_WITH_HOOK->make);
