@@ -1,3 +1,15 @@
+Sun Mar 5 13:36:47 2017 +0100 Reini Urban <rurban@cpan.org>
+    Version 3.05_07
+
+        * Fixed a podchecker issue
+
+Sun Mar 5 11:42:04 2017 +0100 Reini Urban <rurban@cpan.org>
+    Version 3.05_06
+
+        * Fixed wrong recursion depth error with large arrays containing
+        another array.
+	L<[cperl #257]|https://github.com/perl11/cperl/issues/257>
+
 Thu Feb 2 12:40:44 2017 +0100 Reini Urban <rurban@cpanel.net>
     Version 3.05_05
 
