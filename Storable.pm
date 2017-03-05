@@ -25,7 +25,7 @@ package Storable; @ISA = qw(Exporter);
 
 use vars qw($canonical $forgive_me $VERSION $XS_VERSION);
 
-$VERSION = '3.05_06';
+$VERSION = '3.05_07';
 $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 
@@ -864,6 +864,8 @@ to handle the serialization string?
 There are a few things you need to know, however:
 
 =over 4
+
+=item *
 
 Since Storable 3.05 we added a hard recursion limit for references,
 arrays and hashes to a maximal depth of 1200-2000, otherwise we might
