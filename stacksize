@@ -1,0 +1,99 @@
+#!/usr/bin/perl
+# binary search maximum stack depth for arrays and hashes
+# and store it in stacksize.h
+
+my $f;
+my $fn = "stacksize.h";
+sub QUIET () {
+    (defined $ENV{MAKEFLAGS} and $ENV{MAKEFLAGS} =~ /\b(s|silent|quiet)\b/)
+      ? 1 : 0
+}
+
+if (open $f, "<", $fn) {
+    my $s;
+    while ($s = <$f>) {
+        if ($s =~ m|^/\* bisected|) {
+            print "already bisected\n" unless QUIET;
+            exit;
+        }
+    }
+    close $f;
+}
+
+my ($n, $good, $bad, $found) =
+    (35000, 100, 45000, undef);
+my $try = '$t=[$t]';
+print "probe for max. stack sizes...\n" unless QUIET;
+my $mblib = '-Mblib';
+if ($ENV{PERL_CORE}) {
+    if ($^O eq 'MSWin32') {
+        $mblib = '-I..\..\lib\auto -I..\..\lib';
+    } else {
+        $mblib = '-I../../lib/auto -I../../lib';
+    }
+}
+
+sub cmd {
+    my $i = shift;
+    die unless $i;
+    ($^O eq 'MSWin32')
+      ? "\"$^X\" $mblib -MStorable=dclone -e\"my \$t; $try for 1..$i;dclone(\$t);\""
+      : "\"$^X\" $mblib -MStorable=dclone -e'my \$t; $try for 1..$i;dclone(\$t);'"
+}
+# try more
+sub good {
+    my $i = shift; # this passed
+    my $j = $i + abs(int(($bad - $i) / 2));
+    print "$i passed, try more $j ...\n" unless QUIET;
+    $good = $i;
+    if ($j <= $i) {
+        $found++;
+    }
+    return $j;
+}
+# try less
+sub bad {
+    my $i = shift; # this failed
+    my $j = $i - abs(int(($i - $good) / 2));
+    print "$i failed, try less $j ...\n" unless QUIET;
+    $bad = $i;
+    if ($j >= $i) {
+        $j = $good;
+        $found++;
+    }
+    return $j;
+}
+
+while (!$found) {
+    if (system(cmd($n)) == 0) {
+        $n = good($n);
+    } else {
+        $n = bad($n);
+    }
+}
+print "MAX_DEPTH = $n\n" unless QUIET;
+my $max_depth = $n;
+
+($n, $good, $bad, $found) =
+  (int($n/2), 50, $n, undef);
+my $max = length(pack "j", 0) < 8 
+  ? ($^O eq 'MSWin32' ? 3000 : 8000)
+  : 25000;
+$n = $max if $n > $max;
+$bad = $max if $bad > $max;
+$try = '$t={1=>$t}';
+while (!$found) {
+    if (system(cmd($n)) == 0) {
+        $n = good($n);
+    } else {
+        $n = bad($n);
+    }
+}
+print "MAX_DEPTH_HASH = $n\n" unless QUIET;
+my $max_depth_hash = $n;
+
+open $f, ">", $fn or exit(1);
+print $f "/* bisected with stacksize.pl */\n";
+print $f "#define _MAX_DEPTH	$max_depth\n";
+print $f "#define _MAX_DEPTH_HASH $max_depth_hash\n";
+close $f;
