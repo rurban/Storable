@@ -1,2 +1,2 @@
 /* initially empty */
-#undef _MAX_DEPTH
+#undef PST_STACK_MAX_DEPTH

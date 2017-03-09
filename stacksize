@@ -4,6 +4,7 @@
 
 my $f;
 my $fn = "stacksize.h";
+my ($bad1, $bad2) = (45000, 25000);
 sub QUIET () {
     (defined $ENV{MAKEFLAGS} and $ENV{MAKEFLAGS} =~ /\b(s|silent|quiet)\b/)
       ? 1 : 0
@@ -12,6 +13,7 @@ sub QUIET () {
 if (open $f, "<", $fn) {
     my $s;
     while ($s = <$f>) {
+        #print $s unless $QUIET;
         if ($s =~ m|^/\* bisected|) {
             print "already bisected\n" unless QUIET;
             exit;
@@ -21,7 +23,7 @@ if (open $f, "<", $fn) {
 }
 
 my ($n, $good, $bad, $found) =
-    (35000, 100, 45000, undef);
+    (35000, 100, $bad1, undef);
 my $try = '$t=[$t]';
 print "probe for max. stack sizes...\n" unless QUIET;
 my $mblib = '-Mblib';
@@ -65,7 +67,9 @@ sub bad {
 }
 
 while (!$found) {
-    if (system(cmd($n)) == 0) {
+    my $cmd = cmd($n);
+    #print "$cmd\n" unless $QUIET;
+    if (system($cmd) == 0) {
         $n = good($n);
     } else {
         $n = bad($n);
@@ -78,22 +82,34 @@ my $max_depth = $n;
   (int($n/2), 50, $n, undef);
 my $max = length(pack "j", 0) < 8 
   ? ($^O eq 'MSWin32' ? 3000 : 8000)
-  : 25000;
+  : $bad2;
 $n = $max if $n > $max;
 $bad = $max if $bad > $max;
 $try = '$t={1=>$t}';
 while (!$found) {
-    if (system(cmd($n)) == 0) {
+    my $cmd = cmd($n);
+    #print "$cmd\n" unless $QUIET;
+    if (system($cmd) == 0) {
         $n = good($n);
     } else {
         $n = bad($n);
     }
+}
+if ($max_depth == $bad1-1
+    and $n == $bad2-1)
+{
+    # more likely the shell. travis docker ubuntu e.g.
+    print "Error: Apparently your system(SHELLSTRING) cannot catch stack overflows\n"
+      unless QUIET;
+    $max_depth = 512;
+    $n = 256;
+    print "MAX_DEPTH = $max_depth\n" unless QUIET;
 }
 print "MAX_DEPTH_HASH = $n\n" unless QUIET;
 my $max_depth_hash = $n;
 
 open $f, ">", $fn or exit(1);
 print $f "/* bisected with stacksize.pl */\n";
-print $f "#define _MAX_DEPTH	$max_depth\n";
-print $f "#define _MAX_DEPTH_HASH $max_depth_hash\n";
+print $f "#define PST_STACK_MAX_DEPTH	$max_depth\n";
+print $f "#define PST_STACK_MAX_DEPTH_HASH $max_depth_hash\n";
 close $f;

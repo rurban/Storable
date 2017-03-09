@@ -379,18 +379,19 @@ typedef struct stcxt {
 #else
 # define STACK_RESERVE 8
 #endif
-#ifdef _MAX_DEPTH
+#ifdef PST_STACK_MAX_DEPTH
 # if PERL_VERSION > 14
-#  define MAX_DEPTH       (_MAX_DEPTH - STACK_RESERVE)
-#  define MAX_DEPTH_HASH  (_MAX_DEPTH_HASH - STACK_RESERVE)
+#  define MAX_DEPTH       (PST_STACK_MAX_DEPTH - STACK_RESERVE)
+#  define MAX_DEPTH_HASH  (PST_STACK_MAX_DEPTH_HASH - STACK_RESERVE)
 # else
 /* within the exception we need another stack depth to recursively cleanup the hash */
-#  define MAX_DEPTH       ((_MAX_DEPTH >> 1) - STACK_RESERVE)
-#  define MAX_DEPTH_HASH  ((_MAX_DEPTH_HASH >> 1) - (STACK_RESERVE*2))
+#  define MAX_DEPTH       ((PST_STACK_MAX_DEPTH >> 1) - STACK_RESERVE)
+#  define MAX_DEPTH_HASH  ((PST_STACK_MAX_DEPTH_HASH >> 1) - (STACK_RESERVE*2))
 # endif
 #else
-# define MAX_DEPTH        35000
-# define MAX_DEPTH_HASH   25000
+/* uninitialized: enforces a stack overflow SEGV */
+# define MAX_DEPTH        65000
+# define MAX_DEPTH_HASH   35000
 #endif
 #define MAX_DEPTH_ERROR "Max. recursion depth with nested structures exceeded"
 
