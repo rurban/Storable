@@ -2,6 +2,7 @@ MYMETA.json
 MYMETA.yml
 Makefile
 Makefile.old
+stacksize.h
 Storable.bs
 Storable.c
 Storable.o
@@ -14,3 +15,4 @@ storable-testfile.*
 Storable-*.tar.gz
 *.diff
 *.patch
+/log.*

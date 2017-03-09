@@ -1,0 +1,20 @@
+language: perl
+perl:
+  - "5.8"
+  - "5.8-thr"
+  - "5.10"
+  - "5.12"
+  - "5.14"
+  - "5.16"
+  - "5.18"
+  - "5.20-thr"
+  - "5.22-thr"
+  - "5.24"
+  - "5.24-thr"
+  - "dev"
+before_install:
+  - mkdir /home/travis/bin || true
+  - ln -s `which true` /home/travis/bin/cpansign
+  - git clone git://github.com/travis-perl/helpers ~/travis-perl-helpers
+  - source ~/travis-perl-helpers/init --auto
+  #- cpan Devel::Refcount Test::LeakTrace
