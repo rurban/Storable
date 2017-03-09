@@ -11,14 +11,15 @@ use Config;
 WriteMakefile(
     NAME                => 'Storable',
     DISTNAME            => "Storable",
-# We now ship this in t/
-#    PREREQ_PM           => { 'Test::More' => '0.41' },
-    PREREQ_PM           => { XSLoader => 0 },
+    PREREQ_PM           => { 'Test::More' => '0.41',
+                              'XSLoader' => 0 },
     INSTALLDIRS => ($] >= 5.007 && $] < 5.012) ? 'perl' : 'site',
     VERSION_FROM        => 'Storable.pm',
     ($ExtUtils::MakeMaker::VERSION > 6.45 ?
      (META_MERGE        => { resources =>
-                               { bugtracker => 'http://rt.perl.org/perlbug/' }
+                             { bugtracker => 'https://github.com/rurban/Storable/issues/',
+                               repository  => 'https://github.com/rurban/Storable/'
+                             }
                            },
     ) : ()),
     dist                => { SUFFIX => 'gz', COMPRESS => 'gzip -f' },
@@ -43,4 +44,22 @@ in the Storable documentation for instructions on how to read your data.
 (You can find the documentation at the end of Storable.pm in POD format)
 
 EOM
+}
+
+# compute the maximum stacksize, before and after linking
+package MY;
+
+sub linkext {
+    my $s = shift->SUPER::linkext(@_);
+    $s =~ s|( :: .*)|$1 stacksize|;
+    $s
+}
+
+sub depend {
+    "
+stacksize: Makefile
+	\$(PERLRUN) stacksize
+
+Storable.c: stacksize.h
+"
 }
