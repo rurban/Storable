@@ -9,6 +9,31 @@ sub QUIET () {
     (defined $ENV{MAKEFLAGS} and $ENV{MAKEFLAGS} =~ /\b(s|silent|quiet)\b/)
       ? 1 : 0
 }
+sub PARALLEL () {
+    if (defined $ENV{MAKEFLAGS}
+        and $ENV{MAKEFLAGS} =~ /\bj\s*(\d+)\b/
+        and $1 > 1) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+sub is_miniperl {
+    return !defined &DynaLoader::boot_DynaLoader;
+}
+
+if (is_miniperl()) {
+    print "skip miniperl\n" unless QUIET;
+    exit;
+}
+if ($ENV{PERL_CORE}) {
+    if (-d 'dist/Storable') {
+        chdir 'dist/Storable';
+    }
+    if ($^O eq 'MSWin32' and -d '../dist/Storable') {
+        chdir '../dist/Storable';
+    }
+}
 
 if (open $f, "<", $fn) {
     my $s;
@@ -33,6 +58,17 @@ if ($ENV{PERL_CORE}) {
     } else {
         $mblib = '-I../../lib/auto -I../../lib';
     }
+}
+if (PARALLEL) {
+    # problem with parallel builds. wait for INST_DYNAMIC linking to be done.
+    # the problem is the RM_F INST_DYNAMIC race.
+    print "parallel build race - wait for linker ...\n" unless QUIET;
+    sleep(2.0);
+}
+my $probe ="\"$^X\" $mblib -e\"require Storable or die; Storable::dclone([]) or die;\"";
+if (system($probe) != 0) {
+    print "Storable not yet usable\n" unless QUIET;
+    exit;
 }
 
 sub cmd {
@@ -80,7 +116,8 @@ my $max_depth = $n;
 
 ($n, $good, $bad, $found) =
   (int($n/2), 50, $n, undef);
-my $max = length(pack "j", 0) < 8 
+# pack j only since 5.8
+my $max = ($] > 5.007 and length(pack "j", 0) < 8)
   ? ($^O eq 'MSWin32' ? 3000 : 8000)
   : $bad2;
 $n = $max if $n > $max;

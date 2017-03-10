@@ -61,9 +61,10 @@ EOM
 # compute the maximum stacksize, before and after linking
 package MY;
 
+# FORCE finish of INST_DYNAMIC, avoid loading the old Storable (failed XS_VERSION check)
 sub linkext {
     my $s = shift->SUPER::linkext(@_);
-    $s =~ s|( :: .*)|$1 stacksize|;
+    $s =~ s|( :: .*)| $1 FORCE stacksize|;
     $s
 }
 
@@ -75,6 +76,6 @@ stacksize: Makefile \$(LINKEXT)
 stacksize.h: stacksize_in.h
 	\$(CP) stacksize_in.h stacksize.h
 
-Storable.c: stacksize.h
+Storable\$(OBJ_EXT) Storable.c: stacksize.h
 "
 }
