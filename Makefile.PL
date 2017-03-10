@@ -35,7 +35,7 @@ WriteMakefile(
     ) : ()),
     dist                => { SUFFIX => 'gz', COMPRESS => 'gzip -f' },
     clean               => { FILES => 'stacksize.h' },
-    SIGN                => 1
+    SIGN                => 1, # gpg-agent pinentry 2.1.18 broken for me
 );
 
 my $ivtype = $Config{ivtype};
