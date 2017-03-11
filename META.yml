@@ -18,8 +18,10 @@ no_index:
     - t
     - inc
 requires:
+  Test::More: '0.41'
   XSLoader: '0'
 resources:
-  bugtracker: http://rt.perl.org/perlbug/
-version: 3.05_07
+  bugtracker: https://github.com/rurban/Storable/issues/
+  repository: https://github.com/rurban/Storable/
+version: 3.05_09
 x_serialization_backend: 'CPAN::Meta::YAML version 0.018'

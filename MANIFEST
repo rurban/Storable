@@ -9,6 +9,8 @@ hints/linux.pl		    Hint file to drop gcc to -O2
 hints/gnukfreebsd.pl	    Hint file to drop gcc to -O2
 hints/gnuknetbsd.pl	    Hint file to drop gcc to -O2
 ppport.h		    Compatibility header
+stacksize_in.h              computed stacksizes
+stacksize                   compute stacksize
 t/HAS_ATTACH.pm		    For auto-requiring of modules for STORABLE_attach
 t/HAS_HOOK.pm		    For auto-requiring of modules for STORABLE_thaw
 t/HAS_OVERLOAD.pm	    For auto-requiring of mdoules for overload

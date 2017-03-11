@@ -32,6 +32,7 @@
       },
       "runtime" : {
          "requires" : {
+            "Test::More" : "0.41",
             "XSLoader" : "0"
          }
       }
@@ -39,9 +40,12 @@
    "release_status" : "unstable",
    "resources" : {
       "bugtracker" : {
-         "web" : "http://rt.perl.org/perlbug/"
+         "web" : "https://github.com/rurban/Storable/issues/"
+      },
+      "repository" : {
+         "url" : "https://github.com/rurban/Storable/"
       }
    },
-   "version" : "3.05_07",
+   "version" : "3.05_09",
    "x_serialization_backend" : "JSON::PP version 2.27300_01"
 }
