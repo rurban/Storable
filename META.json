@@ -46,6 +46,6 @@
          "url" : "https://github.com/rurban/Storable/"
       }
    },
-   "version" : "3.05_09",
+   "version" : "3.05_10",
    "x_serialization_backend" : "JSON::PP version 2.27300_01"
 }
