@@ -566,6 +566,8 @@ static stcxt_t *Context_ptr = NULL;
 #define KBUFCHK(x)							\
     STMT_START {							\
         if (x >= ksiz) {                                                \
+            if (x >= I32_MAX)                                           \
+                CROAK(("Too large size > I32_MAX"));                    \
             TRACEME(("** extending kbuf to %d bytes (had %d)",          \
                      (int)(x+1), (int)ksiz));                           \
             Renew(kbuf, x+1, char);                                     \
@@ -3960,7 +3962,8 @@ static int store_other(pTHX_ stcxt_t *cxt, SV *sv)
                    PTR2UV(sv), (char) 0);
 
     len = strlen(buf);
-    STORE_SCALAR(buf, len);
+    if (len < 80)
+        STORE_SCALAR(buf, len);
     TRACEME(("ok (dummy \"%s\", length = %" IVdf ")", buf, (IV) len));
 
     return 0;
@@ -4542,7 +4545,7 @@ static SV *retrieve_blessed(pTHX_ stcxt_t *cxt, const char *cname)
      * Retrieve object and bless it.
      */
 
-    sv = retrieve(aTHX_ cxt, classname);	/* First SV which is SEEN will be blessed */
+    sv = retrieve(aTHX_ cxt, classname); /* First SV which is SEEN will be blessed */
     if (malloced_classname)
         Safefree(malloced_classname);
 
@@ -5536,9 +5539,9 @@ static SV *retrieve_vstring(pTHX_ stcxt_t *cxt, const char *cname)
     TRACEME(("retrieve_vstring (#%d), len = %d", (int)cxt->tagnum, len));
 
     READ(s, len);
-
     sv = retrieve(aTHX_ cxt, cname);
-
+    if (!sv)
+        return (SV *) 0;		/* Failed */
     sv_magic(sv,NULL,PERL_MAGIC_vstring,s,len);
     /* 5.10.0 and earlier seem to need this */
     SvRMAGICAL_on(sv);
@@ -5571,7 +5574,8 @@ static SV *retrieve_lvstring(pTHX_ stcxt_t *cxt, const char *cname)
     SAFEPVREAD(s, len, s);
 
     sv = retrieve(aTHX_ cxt, cname);
-
+    if (!sv)
+        return (SV *) 0;		/* Failed */
     sv_magic(sv,NULL,PERL_MAGIC_vstring,s,len);
     /* 5.10.0 and earlier seem to need this */
     SvRMAGICAL_on(sv);
@@ -5861,8 +5865,7 @@ static SV *retrieve_svundef_elem(pTHX_ stcxt_t *cxt, const char *cname)
  */
 static SV *retrieve_array(pTHX_ stcxt_t *cxt, const char *cname)
 {
-    I32 len;
-    I32 i;
+    I32 len, i;
     AV *av;
     SV *sv;
     HV *stash;
@@ -6444,7 +6447,7 @@ static SV *old_retrieve_array(pTHX_ stcxt_t *cxt, const char *cname)
         if (c != SX_ITEM)
             (void) retrieve_other(aTHX_ cxt, 0);/* Will croak out */
         TRACEME(("(#%d) item", (int)i));
-        sv = retrieve(aTHX_ cxt, 0);						/* Retrieve item */
+        sv = retrieve(aTHX_ cxt, 0);		/* Retrieve item */
         if (!sv)
             return (SV *) 0;
         if (av_store(av, i, sv) == 0)
@@ -7400,7 +7403,7 @@ ALIAS:
     is_retrieving = ST_RETRIEVE
 PREINIT:
     bool result;
-PPCODE:
+CODE:
     if (ix) {
         dSTCXT;
         assert(cxt);
@@ -7409,7 +7412,6 @@ PPCODE:
         result = !!last_op_in_netorder(aTHX);
     }
     ST(0) = boolSV(result);
-    XSRETURN(1);
 
 # so far readonly. we rather probe at install to be safe.
 
