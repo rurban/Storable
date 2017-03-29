@@ -1,3 +1,12 @@
+Wed Mar 29 21:04:28 2017 +0200 Reini Urban <rurban@cpan.org>
+    Version 3.05_11
+
+        * croak on sizes read > I32_MAX
+        * simplify last_op_in_netorder
+        * protect from empty retrieve_vstring
+        * protect store_other error buf, potential static
+        buffer overflow.
+
 Tue Mar 14 09:52:20 2017 +0100 Reini Urban <rurban@cpan.org>
     Version 3.05_10
 
