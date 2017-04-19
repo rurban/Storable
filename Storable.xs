@@ -377,7 +377,8 @@ typedef struct stcxt {
 #ifdef WIN32
 # define STACK_RESERVE 32
 #else
-# define STACK_RESERVE 8
+/* 8 should be enough, but some systems, esp. 32bit, need more */
+# define STACK_RESERVE 16
 #endif
 #ifdef PST_STACK_MAX_DEPTH
 # if PERL_VERSION > 14
@@ -3634,7 +3635,7 @@ static int store_hook(
 
 #ifdef USE_PTR_TABLE
         fake_tag = (char *)ptr_table_fetch(cxt->pseen, xsv);
-        if (!sv)
+        if (!fake_tag)
             CROAK(("Could not serialize item #%d from hook in %s",
                    (int)i, classname));
 #else
@@ -5574,8 +5575,10 @@ static SV *retrieve_lvstring(pTHX_ stcxt_t *cxt, const char *cname)
     SAFEPVREAD(s, len, s);
 
     sv = retrieve(aTHX_ cxt, cname);
-    if (!sv)
+    if (!sv) {
+        Safefree(s);
         return (SV *) 0;		/* Failed */
+    }
     sv_magic(sv,NULL,PERL_MAGIC_vstring,s,len);
     /* 5.10.0 and earlier seem to need this */
     SvRMAGICAL_on(sv);
