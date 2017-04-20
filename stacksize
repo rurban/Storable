@@ -55,13 +55,14 @@ if ($ENV{PERL_CORE}) {
 }
 
 if (open $f, "<", $fn) {
-    my $s;
-    while ($s = <$f>) {
-        #print $s unless $QUIET;
-        if ($s =~ m|^/\* bisected|) {
-            print "already bisected\n" unless QUIET;
-            exit;
-        }
+    local $/='';
+    my $s = <$f>;
+    if ($s =~ m|^/\* bisected|m) {
+        print "already bisected\n" unless QUIET;
+        #print values, so it would show in cpantesters report
+        $s =~ m|PST_STACK_MAX_DEPTH\s*(\d+)| and print "PST_STACK_MAX_DEPTH=$1\n";
+        $s =~ m|PST_STACK_MAX_DEPTH_HASH\s*(\d+)| and print "PST_STACK_MAX_DEPTH_HASH=$1\n";
+        exit;
     }
     close $f;
 }
