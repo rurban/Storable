@@ -374,14 +374,15 @@ typedef struct stcxt {
 /* JSON::XS has 512 */
 /* sizes computed with stacksize. use some reserve for the croak cleanup. */
 #include "stacksize.h"
-#ifdef WIN32
+/* esp. cygwin64 cannot 32, cygwin32 can. mingw needs more */
+#if defined(WIN32)
 # define STACK_RESERVE 32
 #else
 /* 8 should be enough, but some systems, esp. 32bit, need more */
 # define STACK_RESERVE 16
 #endif
 #ifdef PST_STACK_MAX_DEPTH
-# if PERL_VERSION > 14
+# if (PERL_VERSION > 14) && !(defined(__CYGWIN__) && (PTRSIZE == 8))
 #  define MAX_DEPTH       (PST_STACK_MAX_DEPTH - STACK_RESERVE)
 #  define MAX_DEPTH_HASH  (PST_STACK_MAX_DEPTH_HASH - STACK_RESERVE)
 # else
@@ -390,9 +391,9 @@ typedef struct stcxt {
 #  define MAX_DEPTH_HASH  ((PST_STACK_MAX_DEPTH_HASH >> 1) - (STACK_RESERVE*2))
 # endif
 #else
-/* uninitialized: enforces a stack overflow SEGV */
-# define MAX_DEPTH        65000
-# define MAX_DEPTH_HASH   35000
+/* uninitialized (stacksize failed): safe */
+# define MAX_DEPTH        512
+# define MAX_DEPTH_HASH   256
 #endif
 #define MAX_DEPTH_ERROR "Max. recursion depth with nested structures exceeded"
 
