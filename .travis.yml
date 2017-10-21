@@ -1,7 +1,11 @@
 language: perl
+# ony old precise has archived -thr builds, but even that fails to install
 perl:
   - "5.8"
   - "5.10"
+  #- "5.10.1-thr"
+  #  dist: precise
+  #  sudo: required
   - "5.12"
   - "5.14"
   - "5.16"
@@ -9,6 +13,9 @@ perl:
   - "5.20"
   - "5.22"
   - "5.24"
+  - "5.26"
+  - "dev"
+#  - "cperl-5.26.1"
 sudo: false
 before_install:
   - perl -V
