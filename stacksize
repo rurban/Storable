@@ -55,13 +55,14 @@ if ($ENV{PERL_CORE}) {
 }
 
 if (open $f, "<", $fn) {
-    my $s;
-    while ($s = <$f>) {
-        #print $s unless $QUIET;
-        if ($s =~ m|^/\* bisected|) {
-            print "already bisected\n" unless QUIET;
-            exit;
-        }
+    local $/='';
+    my $s = <$f>;
+    if ($s =~ m|^/\* bisected|m) {
+        print "already bisected\n" unless QUIET;
+        #print values, so it would show in cpantesters report
+        $s =~ m|PST_STACK_MAX_DEPTH\s*(\d+)| and print "PST_STACK_MAX_DEPTH=$1\n";
+        $s =~ m|PST_STACK_MAX_DEPTH_HASH\s*(\d+)| and print "PST_STACK_MAX_DEPTH_HASH=$1\n";
+        exit;
     }
     close $f;
 }
@@ -97,6 +98,20 @@ for my $i (0..1) {
     } else {
         last;
     }
+}
+
+my $use_W32J = 0;
+if ($^O eq 'MSWin32' && $^V ge v5.18.0) {
+    eval { require Win32::Job;$use_W32J=1;}
+}
+sub runcmd {
+    my $cmd = shift;
+    return system($cmd) unless $use_W32J;
+    my $job = Win32::Job->new;
+    my $pid = $job->spawn(q{perl}, $cmd);
+    $job->run(5);
+    my $status = $job->status;
+    return $job->status->{$pid}{exitcode};
 }
 
 sub cmd {
@@ -154,7 +169,7 @@ $try = '$t={1=>$t}';
 while (!$found) {
     my $cmd = cmd($n);
     #print "$cmd\n" unless $QUIET;
-    if (system($cmd) == 0) {
+    if (runcmd($cmd) == 0) {
         $n = good($n);
     } else {
         $n = bad($n);
