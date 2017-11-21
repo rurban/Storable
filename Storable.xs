@@ -1149,6 +1149,34 @@ static const char byteorderstr_56[] = {BYTEORDER_BYTES_56, 0};
         }                                                       \
     } STMT_END
 
+#ifdef HAS_U64
+
+#  if defined(HAS_NTOHL)
+#    define Sntohl(x) ntohl(x)
+#  elif BYTEORDER == 0x87654321 || BYTEORDER == 0x4321
+#    define Sntohl(x) (x)
+#  else
+static U32 Sntohl(U32 x) {
+    return ((x & 0xFF) << 24) + ((x * 0xFF00) << 8)
+	+ ((x & 0xFF0000) >> 8) + ((x & 0xFF000000) >> 24);
+}
+#  endif
+
+#  define READ_U64(x)                                                       \
+    STMT_START {                                                          \
+	ASSERT(sizeof(x) == 8, ("R64LEN reading a U64"));                 \
+	if (cxt->netorder) {                                              \
+	    U32 buf[2];                                                   \
+	    READ((void *)buf, sizeof(buf));                               \
+	    (x) = ((UV)Sntohl(buf[0]) << 32) + Sntohl(buf[1]);		\
+	}                                                                 \
+	else {                                                            \
+	    READ(&(x), sizeof(x));                                        \
+	}                                                                 \
+    } STMT_END
+
+#endif
+
 /*
  * SEEN() is used at retrieve time, to remember where object 'y', bearing a
  * given tag 'tagnum', has been retrieved. Next time we see an SX_OBJECT marker,
