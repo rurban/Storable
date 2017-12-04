@@ -95,6 +95,15 @@ freeze_thaw_test
      memory => 8,
     );
 
+freeze_thaw_test
+    (
+     name => "hook store with 2g data",
+     freeze => \&make_2g_hook_data,
+     thaw => \&check_2g_hook_data,
+     id => "hook2gdata",
+     memory => 8,
+    );
+
 sub freeze_thaw_test {
     my %opts = @_;
 
@@ -316,6 +325,23 @@ sub find_exe {
     }
 }
 
+sub make_2g_hook_data {
+    my ($fh) = @_;
+
+    my $g2 = 0x80000000;
+    my $x = HookLargeData->new($g2);
+    store_fd($x, $fh);
+}
+
+sub check_2g_hook_data {
+    my ($fh) = @_;
+    my $x = retrieve_fd($fh);
+    my $g2 = 0x80000000;
+    $x->size == $g2
+        or die "Size incorrect ", $x->size;
+    print "OK";
+}
+
 package HookLargeIds;
 
 sub new {
@@ -347,6 +373,28 @@ sub id {
 
 sub data {
     $_[0]{data};
+}
+
+package HookLargeData;
+
+sub new {
+    my ($class, $size) = @_;
+
+    return bless { size => $size }, $class;
+}
+
+sub STORABLE_freeze {
+    return "x" x $_[0]{size};
+}
+
+sub STORABLE_thaw {
+    my ($self, $cloning, $ser) = @_;
+
+    $self->{size} = length $ser;
+}
+
+sub size {
+    $_[0]{size};
 }
 
 package HookLargeData;

@@ -4639,7 +4639,7 @@ static SV *retrieve_hook(pTHX_ stcxt_t *cxt, const char *cname)
     char buf[LG_BLESS + 1];		/* Avoid malloc() if possible */
     char *classname = buf;
     unsigned int flags;
-    I32 len2;
+    U32 len2;
     SV *frozen;
     I32 len3 = 0;
     AV *av = 0;
