@@ -1,7 +1,7 @@
 README			    Read this first
 MANIFEST		    This shipping list
 Makefile.PL		    Generic Makefile template
-Storable.pm		    The perl side of Storable
+__Storable__.pm		    The perl side of Storable
 Storable.xs		    The C side of Storable
 ChangeLog		    Changes since baseline
 hints/hpux.pl		    Hint file to drop gcc to -O1
