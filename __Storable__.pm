@@ -10,10 +10,10 @@
 
 require XSLoader;
 require Exporter;
-package Storable; @ISA = qw(Exporter);
+package Storable; our @ISA = qw(Exporter);
 
-@EXPORT = qw(store retrieve);
-@EXPORT_OK = qw(
+our @EXPORT = qw(store retrieve);
+our @EXPORT_OK = qw(
 	nstore store_fd nstore_fd fd_retrieve
 	freeze nfreeze thaw
 	dclone
@@ -24,7 +24,7 @@ package Storable; @ISA = qw(Exporter);
         stack_depth stack_depth_hash
 );
 
-our qw($canonical $forgive_me);
+our $canonical; our $forgive_me;
 
 our $VERSION = '3.06';
 #our $XS_VERSION = $VERSION;

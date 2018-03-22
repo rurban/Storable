@@ -3,6 +3,7 @@ MYMETA.yml
 Makefile
 Makefile.old
 stacksize.h
+/Storable.pm
 Storable.bs
 Storable.c
 Storable.o
