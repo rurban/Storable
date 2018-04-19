@@ -10,10 +10,11 @@
 
 require XSLoader;
 require Exporter;
-package Storable; @ISA = qw(Exporter);
+package Storable;
 
-@EXPORT = qw(store retrieve);
-@EXPORT_OK = qw(
+our @ISA = qw(Exporter);
+our @EXPORT = qw(store retrieve);
+our @EXPORT_OK = qw(
 	nstore store_fd nstore_fd fd_retrieve
 	freeze nfreeze thaw
 	dclone
@@ -24,11 +25,19 @@ package Storable; @ISA = qw(Exporter);
         stack_depth stack_depth_hash
 );
 
-use vars qw($canonical $forgive_me $VERSION $XS_VERSION);
+our ($canonical, $forgive_me);
 
-$VERSION = '3.05_17';
-$XS_VERSION = $VERSION;
-$VERSION = eval $VERSION;
+our $VERSION = '3.06';
+
+our $recursion_limit;
+our $recursion_limit_hash;
+
+do "Storable/Limit.pm";
+
+$recursion_limit = 512
+  unless defined $recursion_limit;
+$recursion_limit_hash = 256
+  unless defined $recursion_limit_hash;
 
 BEGIN {
     if (eval {
@@ -94,15 +103,7 @@ XSLoader::load('Storable');
 # Determine whether locking is possible, but only when needed.
 #
 
-my $CAN_FLOCK;
-BEGIN {
-    require Config;
-    $CAN_FLOCK =
-      $Config::Config{'d_flock'} ||
-      $Config::Config{'d_fcntl_can_lock'} ||
-      $Config::Config{'d_lockf'};
-}
-sub CAN_FLOCK () { $CAN_FLOCK } 
+sub CAN_FLOCK; # TEMPLATE - replaced by Storable.pm.PL
 
 sub show_file_magic {
     print <<EOM;
@@ -284,7 +285,10 @@ sub _store {
     if (!(close(FILE) or undef $ret) || $@) {
         unlink($file) or warn "Can't unlink $file: $!\n";
     }
-    logcroak $@ if $@ =~ s/\.?\n$/,/;
+    if ($@) {
+        $@ =~ s/\.?\n$/,/ unless ref $@;
+        logcroak $@;
+    }
     $@ = $da;
     return $ret;
 }
@@ -357,7 +361,10 @@ sub _freeze {
     my $ret;
     # Call C routine mstore or net_mstore, depending on network order
     eval { $ret = &$xsptr($self) };
-    logcroak $@ if $@ =~ s/\.?\n$/,/;
+    if ($@) {
+        $@ =~ s/\.?\n$/,/ unless ref $@;
+        logcroak $@;
+    }
     $@ = $da;
     return $ret ? $ret : undef;
 }
@@ -406,7 +413,10 @@ sub _retrieve {
     }
     eval { $self = pretrieve($FILE, $flags) };		# Call C routine
     close($FILE);
-    logcroak $@ if $@ =~ s/\.?\n$/,/;
+    if ($@) {
+        $@ =~ s/\.?\n$/,/ unless ref $@;
+        logcroak $@;
+    }
     $@ = $da;
     return $self;
 }
@@ -424,7 +434,10 @@ sub fd_retrieve {
     my $self;
     my $da = $@;				# Could be from exception handler
     eval { $self = pretrieve($file, $flags) };	# Call C routine
-    logcroak $@ if $@ =~ s/\.?\n$/,/;
+    if ($@) {
+        $@ =~ s/\.?\n$/,/ unless ref $@;
+        logcroak $@;
+    }
     $@ = $da;
     return $self;
 }
@@ -449,9 +462,59 @@ sub thaw {
     my $self;
     my $da = $@;			        # Could be from exception handler
     eval { $self = mretrieve($frozen, $flags) };# Call C routine
-    logcroak $@ if $@ =~ s/\.?\n$/,/;
+    if ($@) {
+        $@ =~ s/\.?\n$/,/ unless ref $@;
+        logcroak $@;
+    }
     $@ = $da;
     return $self;
+}
+
+#
+# _make_re($re, $flags)
+#
+# Internal function used to thaw a regular expression.
+#
+
+my $re_flags;
+BEGIN {
+    if ($] < 5.010) {
+        $re_flags = qr/\A[imsx]*\z/;
+    }
+    elsif ($] < 5.014) {
+        $re_flags = qr/\A[msixp]*\z/;
+    }
+    elsif ($] < 5.022) {
+        $re_flags = qr/\A[msixpdual]*\z/;
+    }
+    else {
+        $re_flags = qr/\A[msixpdualn]*\z/;
+    }
+}
+
+sub _make_re {
+    my ($re, $flags) = @_;
+
+    $flags =~ $re_flags
+        or die "regexp flags invalid";
+
+    my $qr = eval "qr/\$re/$flags";
+    die $@ if $@;
+
+    $qr;
+}
+
+if ($] < 5.012) {
+    eval <<'EOS'
+sub _regexp_pattern {
+    my $re = "" . shift;
+    $re =~ /\A\(\?([xism]*)(?:-[xism]*)?:(.*)\)\z/s
+        or die "Cannot parse regexp /$re/";
+    return ($2, $1);
+}
+1
+EOS
+      or die "Cannot define _regexp_pattern: $@";
 }
 
 1;
@@ -884,6 +947,34 @@ fall into a stack-overflow.  On JSON::XS this limit is 512 btw.  With
 references not immediately referencing each other there's no such
 limit yet, so you might fall into such a stack-overflow segfault.
 
+This probing and the checks performed have some limitations:
+
+=over
+
+=item *
+
+the stack size at build time might be different at run time, eg. the
+stack size may have been modified with ulimit(1).  If it's larger at
+run time Storable may fail the freeze() or thaw() unnecessarily.
+
+=item *
+
+the stack size might be different in a thread.
+
+=item *
+
+array and hash recursion limits are checked separately against the
+same recursion depth, a frozen structure with a large sequence of
+nested arrays within many nested hashes may exhaust the processor
+stack without triggering Storable's recursion protection.
+
+=back
+
+You can control the maximum array and hash recursion depths by
+modifying C<$Storable::recursion_limit> and
+C<$Storable::recursion_limit_hash> respectively.  Either can be set to
+C<-1> to prevent any depth checks, though this isn't recommended.
+
 =item *
 
 You can create endless loops if the things you serialize via freeze()
@@ -1047,43 +1138,43 @@ such.
 
 Here are some code samples showing a possible usage of Storable:
 
-	use Storable qw(store retrieve freeze thaw dclone);
+ use Storable qw(store retrieve freeze thaw dclone);
 
-	%color = ('Blue' => 0.1, 'Red' => 0.8, 'Black' => 0, 'White' => 1);
+ %color = ('Blue' => 0.1, 'Red' => 0.8, 'Black' => 0, 'White' => 1);
 
-	store(\%color, 'mycolors') or die "Can't store %a in mycolors!\n";
+ store(\%color, 'mycolors') or die "Can't store %a in mycolors!\n";
 
-	$colref = retrieve('mycolors');
-	die "Unable to retrieve from mycolors!\n" unless defined $colref;
-	printf "Blue is still %lf\n", $colref->{'Blue'};
+ $colref = retrieve('mycolors');
+ die "Unable to retrieve from mycolors!\n" unless defined $colref;
+ printf "Blue is still %lf\n", $colref->{'Blue'};
 
-	$colref2 = dclone(\%color);
+ $colref2 = dclone(\%color);
 
-	$str = freeze(\%color);
-	printf "Serialization of %%color is %d bytes long.\n", length($str);
-	$colref3 = thaw($str);
+ $str = freeze(\%color);
+ printf "Serialization of %%color is %d bytes long.\n", length($str);
+ $colref3 = thaw($str);
 
 which prints (on my machine):
 
-	Blue is still 0.100000
-	Serialization of %color is 102 bytes long.
+ Blue is still 0.100000
+ Serialization of %color is 102 bytes long.
 
 Serialization of CODE references and deserialization in a safe
 compartment:
 
 =for example begin
 
-	use Storable qw(freeze thaw);
-	use Safe;
-	use strict;
-	my $safe = new Safe;
+ use Storable qw(freeze thaw);
+ use Safe;
+ use strict;
+ my $safe = new Safe;
         # because of opcodes used in "use strict":
-	$safe->permit(qw(:default require));
-	local $Storable::Deparse = 1;
-	local $Storable::Eval = sub { $safe->reval($_[0]) };
-	my $serialized = freeze(sub { 42 });
-	my $code = thaw($serialized);
-	$code->() == 42;
+ $safe->permit(qw(:default require));
+ local $Storable::Deparse = 1;
+ local $Storable::Eval = sub { $safe->reval($_[0]) };
+ my $serialized = freeze(sub { 42 });
+ my $code = thaw($serialized);
+ $code->() == 42;
 
 =for example end
 
@@ -1152,9 +1243,42 @@ populated, sorted and freed.  Some tests have shown a halving of the
 speed of storing -- the exact penalty will depend on the complexity of
 your data.  There is no slowdown on retrieval.
 
+=head1 REGULAR EXPRESSIONS
+
+Storable now has experimental support for storing regular expressions,
+but there are significant limitations:
+
+=over
+
+=item *
+
+perl 5.8 or later is required.
+
+=item *
+
+regular expressions with code blocks, ie C</(?{ ... })/> or C</(??{
+... })/> will throw an exception when thawed.
+
+=item *
+
+regular expression syntax and flags have changed over the history of
+perl, so a regular expression that you freeze in one version of perl
+may fail to thaw or behave differently in another version of perl.
+
+=item *
+
+depending on the version of perl, regular expressions can change in
+behaviour depending on the context, but later perls will bake that
+behaviour into the regexp.
+
+=back
+
+Storable will throw an exception if a frozen regular expression cannot
+be thawed.
+
 =head1 BUGS
 
-You can't store GLOB, FORMLINE, REGEXP, etc.... If you can define semantics
+You can't store GLOB, FORMLINE, etc.... If you can define semantics
 for those operations, feel free to enhance Storable so that it can
 deal with them.
 

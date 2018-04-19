@@ -1,12 +1,29 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Storable
-version:      3.05_17
-version_from: Storable.pm
-installdirs:  site
+---
+abstract: 'persistence for Perl data structures'
+author:
+  - unknown
+build_requires:
+  ExtUtils::MakeMaker: '0'
+configure_requires:
+  ExtUtils::MakeMaker: '0'
+dynamic_config: 1
+generated_by: 'ExtUtils::MakeMaker version 7.24, CPAN::Meta::Converter version 2.150010'
+license: unknown
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: '1.4'
+name: Storable
+no_index:
+  directory:
+    - t
+    - inc
+provides:
+  Storable:
+    file: Storable_pm.PL
+    version: '0'
 requires:
-    Test::More:                    0.41
-    XSLoader:                      0
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.17
+  XSLoader: '0'
+resources:
+  bugtracker: http://rt.perl.org/perlbug/
+version: '3.06'
+x_serialization_backend: 'CPAN::Meta::YAML version 0.018'
