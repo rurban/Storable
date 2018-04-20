@@ -6,8 +6,10 @@ stacksize.h
 Storable.bs
 Storable.c
 Storable.o
+Storable.pm
 Storable.obj
 blib/
+lib/Storable/Limit.pm
 pm_to_blib
 storable-testfile.*
 .gdb

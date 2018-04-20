@@ -338,31 +338,8 @@ typedef STRLEN ntag_t;
 #define USE_PTR_TABLE
 #endif
 
-/* do we need/want to clear padding on NVs? */
-#if defined(LONG_DOUBLEKIND) && defined(USE_LONG_DOUBLE)
-#  if LONG_DOUBLEKIND == LONG_DOUBLE_IS_X86_80_BIT_LITTLE_ENDIAN || \
-      LONG_DOUBLEKIND == LONG_DOUBLE_IS_X86_80_BIT_BIG_ENDIAN
-#    define NV_PADDING (NVSIZE - 10)
-#  else
-#    define NV_PADDING 0
-#  endif
-#else
-/* This is kind of a guess - it means we'll get an unneeded clear on 128-bit NV
-   but an upgraded perl will fix that
-*/
-#  if NVSIZE > 8
-#    define NV_CLEAR
-#  endif
-#  define NV_PADDING 0
-#endif
-
-typedef union {
-    NV nv;
-    U8 bytes[sizeof(NV)];
-} NV_bytes;
-
 /* Needed for 32bit with lengths > 2G - 4G, and 64bit */
-#if PTRSIZE > 4
+#if UVSIZE > 4
 #define HAS_U64
 #endif
 
@@ -591,6 +568,16 @@ static stcxt_t *Context_ptr = NULL;
 #else
 #define LOW_32BITS(x)	((I32) ((unsigned long) (x) & 0xffffffffUL))
 #endif
+
+/*
+ * PTR2TAG(x)
+ *
+ * Convert a pointer into an ntag_t.
+ */
+
+#define PTR2TAG(x) ((ntag_t)(x))
+
+#define TAG2PTR(x, type) ((y)(x))
 
 /*
  * oI, oS, oC
@@ -2533,19 +2520,13 @@ static int store_scalar(pTHX_ stcxt_t *cxt, SV *sv)
 
         TRACEME(("ok (integer 0x%" UVxf ", value = %" IVdf ")", PTR2UV(sv), iv));
     } else if (flags & SVf_NOK) {
-        NV_bytes nv;
-#ifdef NV_CLEAR
-        /* if we can't tell if there's padding, clear the whole NV and hope the
-           compiler leaves the padding alone
-        */
-        Zero(&nv, 1, NV_bytes);
-#endif
+        NV nv;
 #if (PATCHLEVEL <= 6)
-        nv.nv = SvNV(sv);
+        nv = SvNV(sv);
         /*
          * Watch for number being an integer in disguise.
          */
-        if (nv.nv == (NV) (iv = I_V(nv.nv))) {
+        if (nv == (NV) (iv = I_V(nv))) {
             TRACEME(("double %" NVff " is actually integer %" IVdf, nv, iv));
             goto integer;		/* Share code above */
         }
@@ -2556,21 +2537,18 @@ static int store_scalar(pTHX_ stcxt_t *cxt, SV *sv)
             iv = SvIV(sv);
             goto integer;		/* Share code above */
         }
-        nv.nv = SvNV(sv);
+        nv = SvNV(sv);
 #endif
 
         if (cxt->netorder) {
-            TRACEME(("double %" NVff " stored as string", nv.nv));
+            TRACEME(("double %" NVff " stored as string", nv));
             goto string_readlen;		/* Share code below */
         }
-#if NV_PADDING
-        Zero(nv.bytes + NVSIZE - NV_PADDING, NV_PADDING, char);
-#endif
 
         PUTMARK(SX_DOUBLE);
         WRITE(&nv, sizeof(nv));
 
-        TRACEME(("ok (double 0x%" UVxf ", value = %" NVff ")", PTR2UV(sv), nv.nv));
+        TRACEME(("ok (double 0x%" UVxf ", value = %" NVff ")", PTR2UV(sv), nv));
 
     } else if (flags & (SVp_POK | SVp_NOK | SVp_IOK)) {
 #ifdef SvVOK
@@ -3557,6 +3535,9 @@ static int store_hook(
     int clone = cxt->optype & ST_CLONE;
     char mtype = '\0';		/* for blessed ref to tied structures */
     unsigned char eflags = '\0'; /* used when object type is SHT_EXTRA */
+#ifdef HAS_U64
+    int need_large_oids = 0;
+#endif
 
     TRACEME(("store_hook, classname \"%s\", tagged #%d", HvNAME_get(pkg), (int)cxt->tagnum));
 
@@ -3684,12 +3665,6 @@ static int store_hook(
         }
     }
 
-#ifdef HAS_U64
-    if (count > I32_MAX) {
-	CROAK(("Too many references returned by STORABLE_freeze()"));
-    }
-#endif
-
     /*
      * If they returned more than one item, we need to serialize some
      * extra references if not already done.
@@ -3810,6 +3785,10 @@ static int store_hook(
         ary[i] = tag;
         TRACEME(("listed object %d at 0x%" UVxf " is tag #%" UVuf,
                  i-1, PTR2UV(xsv), PTR2UV(tag)));
+#ifdef HAS_U64
+       if ((U32)PTR2TAG(tag) != PTR2TAG(tag))
+           need_large_oids = 1;
+#endif
     }
 
     /*
@@ -3844,6 +3823,10 @@ static int store_hook(
         flags |= SHF_HAS_LIST;
     if (count > (LG_SCALAR + 1))
         flags |= SHF_LARGE_LISTLEN;
+#ifdef HAS_U64
+    if (need_large_oids)
+        flags |= SHF_LARGE_LISTLEN;
+#endif
 
     /*
      * We're ready to emit either serialized form:
@@ -3899,8 +3882,14 @@ static int store_hook(
     /* [<len3> <object-IDs>] */
     if (flags & SHF_HAS_LIST) {
         int len3 = count - 1;
-        if (flags & SHF_LARGE_LISTLEN)
+        if (flags & SHF_LARGE_LISTLEN) {
+#ifdef HAS_U64
+  	    int tlen3 = need_large_oids ? -len3 : len3;
+	    WLEN(tlen3);
+#else
             WLEN(len3);
+#endif
+	}
         else {
             unsigned char clen = (unsigned char) len3;
             PUTMARK(clen);
@@ -3909,12 +3898,24 @@ static int store_hook(
         /*
          * NOTA BENE, for 64-bit machines: the ary[i] below does not yield a
          * real pointer, rather a tag number, well under the 32-bit limit.
+         * Which is wrong... if we have more than 2**32 SVs we can get ids over
+         * the 32-bit limit.
          */
 
         for (i = 1; i < count; i++) {
-            I32 tagval = htonl(LOW_32BITS(ary[i]));
-            WRITE_I32(tagval);
-            TRACEME(("object %d, tag #%d", i-1, ntohl(tagval)));
+#ifdef HAS_U64
+            if (need_large_oids) {
+                ntag_t tag = PTR2TAG(ary[i]);
+                W64LEN(tag);
+                TRACEME(("object %d, tag #%" UVuf, i-1, (UV)tag));
+            }
+            else
+#endif
+            {
+                I32 tagval = htonl(LOW_32BITS(ary[i]));
+                WRITE_I32(tagval);
+                TRACEME(("object %d, tag #%d", i-1, ntohl(tagval)));
+            }
         }
     }
 
@@ -4217,9 +4218,8 @@ static int store(pTHX_ stcxt_t *cxt, SV *sv)
     svh = hv_fetch(hseen, (char *) &sv, sizeof(sv), FALSE);
 #endif
     if (svh) {
-        I32 tagval;
-
-        if (sv == &PL_sv_undef) {
+	ntag_t tagval;
+	if (sv == &PL_sv_undef) {
             /* We have seen PL_sv_undef before, but fake it as
                if we have not.
 
@@ -4250,17 +4250,41 @@ static int store(pTHX_ stcxt_t *cxt, SV *sv)
         }
 
 #ifdef USE_PTR_TABLE
-        tagval = htonl(LOW_32BITS(((char *)svh)-1));
+	tagval = PTR2TAG(((char *)svh)-1);
 #else
-        tagval = htonl(LOW_32BITS(*svh));
+	tagval = PTR2TAG(*svh);
 #endif
+#ifdef HAS_U64
 
-        TRACEME(("object 0x%" UVxf " seen as #%d", PTR2UV(sv),
-                 ntohl(tagval)));
+       /* older versions of Storable streat the tag as a signed value
+          used in an array lookup, corrupting the data structure.
+          Ensure only a newer Storable will be able to parse this tag id
+          if it's over the 2G mark.
+        */
+	if (tagval > I32_MAX) {
 
-        PUTMARK(SX_OBJECT);
-        WRITE_I32(tagval);
-        return 0;
+	    TRACEME(("object 0x%" UVxf " seen as #%" UVuf, PTR2UV(sv),
+		     tagval));
+
+	    PUTMARK(SX_LOBJECT);
+	    PUTMARK(SX_OBJECT);
+	    W64LEN(tagval);
+	    return 0;
+	}
+	else
+#endif
+	{
+	    I32 ltagval;
+
+	    ltagval = htonl((I32)tagval);
+
+            TRACEME(("object 0x%" UVxf " seen as #%d", PTR2UV(sv),
+                  ntohl(ltagval)));
+
+	    PUTMARK(SX_OBJECT);
+	    WRITE_I32(ltagval);
+	    return 0;
+	}
     }
 
     /*
@@ -4723,6 +4747,9 @@ static SV *retrieve_hook(pTHX_ stcxt_t *cxt, const char *cname)
     int clone = cxt->optype & ST_CLONE;
     char mtype = '\0';
     unsigned int extra_type = 0;
+#ifdef HAS_U64
+    int has_large_oids = 0;
+#endif
 
     PERL_UNUSED_ARG(cname);
     TRACEME(("retrieve_hook (#%d)", (int)cxt->tagnum));
@@ -4881,12 +4908,12 @@ static SV *retrieve_hook(pTHX_ stcxt_t *cxt, const char *cname)
     else
         GETMARK(len2);
 
-    frozen = NEWSV(10002, len2 ? len2 : 1);
+    frozen = NEWSV(10002, len2);
     if (len2) {
         SAFEREAD(SvPVX(frozen), len2, frozen);
+        SvCUR_set(frozen, len2);
+        *SvEND(frozen) = '\0';
     }
-    SvCUR_set(frozen, len2);
-    *SvEND(frozen) = '\0';
     (void) SvPOK_only(frozen);		/* Validates string pointer */
     if (cxt->s_tainted)			/* Is input source tainted? */
         SvTAINT(frozen);
@@ -4898,9 +4925,19 @@ static SV *retrieve_hook(pTHX_ stcxt_t *cxt, const char *cname)
      */
 
     if (flags & SHF_HAS_LIST) {
-        if (flags & SHF_LARGE_LISTLEN)
+        if (flags & SHF_LARGE_LISTLEN) {
             RLEN(len3);
-        else
+	    if (len3 < 0) {
+#ifdef HAS_U64
+	        ++has_large_oids;
+		len3 = -len3;
+#else
+		CROAK(("Large object ids in hook data not supported on 32-bit platforms"));
+#endif
+	        
+	    }
+	}
+	else
             GETMARK(len3);
         if (len3) {
             av = newAV();
@@ -4925,12 +4962,24 @@ static SV *retrieve_hook(pTHX_ stcxt_t *cxt, const char *cname)
         SV **ary = AvARRAY(av);
         int i;
         for (i = 1; i <= len3; i++) {	/* We leave [0] alone */
-            I32 tag;
+            ntag_t tag;
             SV **svh;
             SV *xsv;
 
-            READ_I32(tag);
-            tag = ntohl(tag);
+#ifdef HAS_U64
+	    if (has_large_oids) {
+		READ_U64(tag);
+	    }
+	    else {
+		U32 tmp;
+		READ_I32(tmp);
+		tag = ntohl(tmp);
+	    }
+#else
+	    READ_I32(tag);
+	    tag = ntohl(tag);
+#endif
+
             svh = av_fetch(cxt->aseen, tag, FALSE);
             if (!svh) {
                 if (tag == cxt->where_is_undef) {
@@ -5593,7 +5642,7 @@ static SV *get_lstring(pTHX_ stcxt_t *cxt, UV len, int isutf8, const char *cname
  */
 static SV *retrieve_lscalar(pTHX_ stcxt_t *cxt, const char *cname)
 {
-    U32 len;
+    I32 len;
     RLEN(len);
     return get_lstring(aTHX_ cxt, len, 0, cname);
 }
@@ -5642,7 +5691,7 @@ static SV *retrieve_utf8str(pTHX_ stcxt_t *cxt, const char *cname)
  */
 static SV *retrieve_lutf8str(pTHX_ stcxt_t *cxt, const char *cname)
 {
-    U32 len;
+    int len;
 
     TRACEME(("retrieve_lutf8str"));
 
@@ -5782,6 +5831,18 @@ static SV *retrieve_lobject(pTHX_ stcxt_t *cxt, const char *cname)
     READ_U64(len);
     TRACEME(("wlen %" UVuf, len));
     switch (type) {
+    case SX_OBJECT:
+        {
+            /* not a large object, just a large index */
+            SV **svh = av_fetch(cxt->aseen, len, FALSE);
+            if (!svh)
+                CROAK(("Object #%" UVuf " should have been retrieved already",
+                      len));
+            sv = *svh;
+            TRACEME(("had retrieved #%" UVuf " at 0x%" UVxf, len, PTR2UV(sv)));
+            SvREFCNT_inc(sv);
+        }
+        break;
     case SX_LSCALAR:
         sv = get_lstring(aTHX_ cxt, len, 0, cname);
         break;

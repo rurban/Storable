@@ -26,9 +26,19 @@ package Storable; @ISA = qw(Exporter);
 
 use vars qw($canonical $forgive_me $VERSION $XS_VERSION);
 
-$VERSION = '3.05_17';
+$VERSION = '3.05_16';
 $XS_VERSION = $VERSION;
 $VERSION = eval $VERSION;
+
+our $recursion_limit;
+our $recursion_limit_hash;
+
+do "Storable/Limit.pm";
+
+$recursion_limit = 512
+  unless defined $recursion_limit;
+$recursion_limit_hash = 256
+  unless defined $recursion_limit_hash;
 
 BEGIN {
     if (eval {
@@ -469,6 +479,53 @@ sub thaw {
     return $self;
 }
 
+#
+# _make_re($re, $flags)
+#
+# Internal function used to thaw a regular expression.
+#
+
+my $re_flags;
+BEGIN {
+    if ($] < 5.010) {
+        $re_flags = qr/\A[imsx]*\z/;
+    }
+    elsif ($] < 5.014) {
+        $re_flags = qr/\A[msixp]*\z/;
+    }
+    elsif ($] < 5.022) {
+        $re_flags = qr/\A[msixpdual]*\z/;
+    }
+    else {
+        $re_flags = qr/\A[msixpdualn]*\z/;
+    }
+}
+
+sub _make_re {
+    my ($re, $flags) = @_;
+
+    $flags =~ $re_flags
+        or die "regexp flags invalid";
+
+    my $qr = eval "qr/\$re/$flags";
+    die $@ if $@;
+
+    $qr;
+}
+
+if ($] < 5.012) {
+    eval <<'EOS'
+sub _regexp_pattern {
+    my $re = "" . shift;
+    $re =~ /\A\(\?([xism]*)(?:-[xism]*)?:(.*)\)\z/s
+        or die "Cannot parse regexp /$re/";
+    return ($2, $1);
+}
+1
+EOS
+      or die "Cannot define _regexp_pattern: $@";
+}
+
 1;
 __END__
 
@@ -899,6 +956,34 @@ fall into a stack-overflow.  On JSON::XS this limit is 512 btw.  With
 references not immediately referencing each other there's no such
 limit yet, so you might fall into such a stack-overflow segfault.
 
+This probing and the checks performed have some limitations:
+
+=over
+
+=item *
+
+the stack size at build time might be different at run time, eg. the
+stack size may have been modified with ulimit(1).  If it's larger at
+run time Storable may fail the freeze() or thaw() unnecessarily.
+
+=item *
+
+the stack size might be different in a thread.
+
+=item *
+
+array and hash recursion limits are checked separately against the
+same recursion depth, a frozen structure with a large sequence of
+nested arrays within many nested hashes may exhaust the processor
+stack without triggering Storable's recursion protection.
+
+=back
+
+You can control the maximum array and hash recursion depths by
+modifying C<$Storable::recursion_limit> and
+C<$Storable::recursion_limit_hash> respectively.  Either can be set to
+C<-1> to prevent any depth checks, though this isn't recommended.
+
 =item *
 
 You can create endless loops if the things you serialize via freeze()
@@ -1167,9 +1252,42 @@ populated, sorted and freed.  Some tests have shown a halving of the
 speed of storing -- the exact penalty will depend on the complexity of
 your data.  There is no slowdown on retrieval.
 
+=head1 REGULAR EXPRESSIONS
+
+Storable now has experimental support for storing regular expressions,
+but there are significant limitations:
+
+=over
+
+=item *
+
+perl 5.8 or later is required.
+
+=item *
+
+regular expressions with code blocks, ie C</(?{ ... })/> or C</(??{
+... })/> will throw an exception when thawed.
+
+=item *
+
+regular expression syntax and flags have changed over the history of
+perl, so a regular expression that you freeze in one version of perl
+may fail to thaw or behave differently in another version of perl.
+
+=item *
+
+depending on the version of perl, regular expressions can change in
+behaviour depending on the context, but later perls will bake that
+behaviour into the regexp.
+
+=back
+
+Storable will throw an exception if a frozen regular expression cannot
+be thawed.
+
 =head1 BUGS
 
-You can't store GLOB, FORMLINE, REGEXP, etc.... If you can define semantics
+You can't store GLOB, FORMLINE, etc.... If you can define semantics
 for those operations, feel free to enhance Storable so that it can
 deal with them.
 
