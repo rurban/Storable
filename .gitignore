@@ -15,4 +15,6 @@ storable-testfile.*
 Storable-*.tar.gz
 *.diff
 *.patch
+/.git-rr-cache
 /log.*
+/lib/Storable/Limit.pm
