@@ -57,4 +57,4 @@ t/weak.t		    Can Storable store weakrefs
 t/compat/Test/Builder.pm    For testing the CPAN release on pre 5.6.2
 t/compat/Test/More.pm	    For testing the CPAN release on pre 5.6.2
 t/compat/Test/Simple.pm	    For testing the CPAN release on pre 5.6.2
-SIGNATURE                                Public-key signature (added by MakeMaker)
+META.yml                                 Module meta-data (added by MakeMaker)

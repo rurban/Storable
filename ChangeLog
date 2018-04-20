@@ -1,3 +1,9 @@
+2017-11-10 13:53:00 rurban
+    Version 3.05_17
+
+        * t/blessed.t: Better fix for pre-5.19.2 threaded perls
+        from p5p.
+
 2017-10-21 17:55:53 rurban
     Version 3.05_16
 
@@ -25,7 +31,7 @@
 
 Wed Apr 19 09:11:07 2017 +0200 Reini Urban <rurban@cpan.org>
     Version 3.05_12
-
+ 
         * enhance stack reserve from 8 to 16
         * fix LD_LIBRARY_PATH usage for CORE
         * fixed some coverity warnings and leaks
