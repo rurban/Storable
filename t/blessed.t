@@ -331,7 +331,8 @@ is(ref $t, 'STRESS_THE_STACK');
     }
 }
 
-{
+TODO: {
+    local $TODO = 'thaw empty serialized';
     # [perl #118551]
     {
         package RT118551;
