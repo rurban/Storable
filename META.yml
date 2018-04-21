@@ -1,7 +1,7 @@
 ---
 abstract: 'persistence for Perl data structures'
 author:
-  - unknown
+  - 'Perl 5 Porters'
 build_requires:
   ExtUtils::MakeMaker: '0'
 configure_requires:
@@ -20,10 +20,10 @@ no_index:
 provides:
   Storable:
     file: Storable_pm.PL
-    version: '0'
+    version: '3.08'
 requires:
   XSLoader: '0'
 resources:
   bugtracker: http://rt.perl.org/perlbug/
-version: '3.06'
+version: '3.08'
 x_serialization_backend: 'CPAN::Meta::YAML version 0.018'

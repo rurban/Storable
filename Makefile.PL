@@ -6,6 +6,8 @@
 #  in the README file that comes with the distribution.
 #
 
+use strict;
+use warnings;
 use ExtUtils::MakeMaker;
 use Config;
 use File::Copy qw(move copy);
@@ -21,6 +23,7 @@ unless ($ENV{PERL_CORE}) {
 
 WriteMakefile(
     NAME                => 'Storable',
+    AUTHOR              => 'Perl 5 Porters',
     DISTNAME            => "Storable",
 # We now ship this in t/
 #    PREREQ_PM           => { 'Test::More' => '0.41' },
@@ -36,7 +39,7 @@ WriteMakefile(
                             provides    => {
                                 'Storable'  => {
                                     file        => 'Storable_pm.PL',
-                                    version     => $NEW_VERSION,
+                                    version     => MM->parse_version('__Storable__.pm'),
                                 },
                             },
 

@@ -1,7 +1,7 @@
 {
    "abstract" : "persistence for Perl data structures",
    "author" : [
-      "unknown"
+      "Perl 5 Porters"
    ],
    "dynamic_config" : 1,
    "generated_by" : "ExtUtils::MakeMaker version 7.24, CPAN::Meta::Converter version 2.150010",
@@ -39,7 +39,7 @@
    "provides" : {
       "Storable" : {
          "file" : "Storable_pm.PL",
-         "version" : "0"
+         "version" : "3.08"
       }
    },
    "release_status" : "stable",
@@ -48,6 +48,6 @@
          "web" : "http://rt.perl.org/perlbug/"
       }
    },
-   "version" : "3.06",
+   "version" : "3.08",
    "x_serialization_backend" : "JSON::PP version 2.27400_02"
 }
