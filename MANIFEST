@@ -10,6 +10,9 @@ META.yml			Module meta-data (added by MakeMaker)
 ppport.h
 README
 stacksize
+Storable.bs
+Storable.c
+Storable.o
 Storable.pm.PL
 Storable.xs
 t/attach.t
