@@ -10,8 +10,9 @@
 
 require XSLoader;
 require Exporter;
-package Storable; our @ISA = qw(Exporter);
+package Storable;
 
+our @ISA = qw(Exporter);
 our @EXPORT = qw(store retrieve);
 our @EXPORT_OK = qw(
 	nstore store_fd nstore_fd fd_retrieve
@@ -24,11 +25,9 @@ our @EXPORT_OK = qw(
         stack_depth stack_depth_hash
 );
 
-our $canonical; our $forgive_me;
+our ($canonical, $forgive_me);
 
-our $VERSION = '3.08';
-#our $XS_VERSION = $VERSION;
-#$VERSION = eval $VERSION;
+our $VERSION = '3.11';
 
 our $recursion_limit;
 our $recursion_limit_hash;
@@ -104,15 +103,7 @@ XSLoader::load('Storable');
 # Determine whether locking is possible, but only when needed.
 #
 
-my $CAN_FLOCK;
-BEGIN {
-    require Config;
-    $CAN_FLOCK =
-      $Config::Config{'d_flock'} ||
-      $Config::Config{'d_fcntl_can_lock'} ||
-      $Config::Config{'d_lockf'};
-}
-sub CAN_FLOCK () { $CAN_FLOCK } 
+sub CAN_FLOCK; # TEMPLATE - replaced by Storable.pm.PL
 
 sub show_file_magic {
     print <<EOM;

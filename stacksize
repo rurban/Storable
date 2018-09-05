@@ -82,7 +82,6 @@ if ($^O eq "MSWin32") {
 }
 my ($n, $good, $bad, $found) =
     (65000, 100, $bad1, undef);
-my $try = '$t=[$t]';
 print "probe for max. stack sizes...\n" unless QUIET;
 # -I. since we're run before pm_to_blib (which is going to copy the
 # file we create) and need to load our Storable.pm, not the already
@@ -101,20 +100,6 @@ if (PARALLEL) {
     print "parallel build race - wait for linker ...\n" unless QUIET;
     sleep(2.0);
 }
-for my $i (0..1) {
-    my $probe ="$PERL $mblib -e\"require Storable or die; Storable::dclone([]) or die;\"";
-    if (system($probe) != 0) {
-        print "Storable not yet usable: $probe\n" unless QUIET;
-        unless ($i) { # XXX race?
-            system($Config{make});
-            # and try again
-        } else {
-            exit;
-        }
-    } else {
-        last;
-    }
-}
 
 my $use_W32J = 0;
 if ($^O eq 'MSWin32' && $^V ge v5.18.0) {
@@ -122,7 +107,9 @@ if ($^O eq 'MSWin32' && $^V ge v5.18.0) {
 }
 sub runcmd {
     my $cmd = shift;
-    return system($cmd) unless $use_W32J;
+    unless ($use_W32J) {
+      return `$cmd` =~ /\bok\b/ ? 0 : 1;
+    }
     my $job = Win32::Job->new;
     my $pid = $job->spawn(q{perl}, $cmd);
     $job->run(5);
@@ -181,7 +168,7 @@ unless ($ENV{STORABLE_NOISY}) {
 while (!$found) {
     my $cmd = array_cmd($n);
     #print "$cmd\n" unless $QUIET;
-    if (`$cmd` =~ /\bok\b/) {
+    if (runcmd($cmd) == 0) {
         $n = good($n);
     } else {
         $n = bad($n);
@@ -246,8 +233,8 @@ write_limits($max_depth, $max_depth_hash);
 
 sub write_limits {
     my ($max_depth, $max_depth_hash) = @_;
-    chmod 0644, $fn if -e $fn && !-w $fn;
     my $f;
+    chmod 0644, $fn if -e $fn && !-w $fn;
     open $f, ">", $fn or die "$fn $!";
     print $f <<EOS;
 # bisected by stacksize

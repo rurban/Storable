@@ -39,7 +39,9 @@ BEGIN { plan tests => 63 }
 use Storable qw(retrieve store nstore freeze nfreeze thaw dclone);
 use Safe;
 
-use vars qw($freezed $thawed @obj @res $blessed_code);
+#$Storable::DEBUGME = 1;
+
+our ($freezed, $thawed, @obj, @res, $blessed_code);
 
 $blessed_code = bless sub { "blessed" }, "Some::Package";
 { package Another::Package; sub foo { __PACKAGE__ } }
