@@ -2,7 +2,7 @@
 #  Copyright (c) 1995-2001, Raphael Manfredi
 #  Copyright (c) 2002-2014 by the Perl 5 Porters
 #  Copyright (c) 2015-2016 cPanel Inc
-#  Copyright (c) 2017 Reini Urban
+#  Copyright (c) 2017-2018 Reini Urban
 #
 #  You may redistribute only under the same terms as Perl 5, as specified
 #  in the README file that comes with the distribution.
@@ -27,7 +27,9 @@ our @EXPORT_OK = qw(
 
 our ($canonical, $forgive_me);
 
-our $VERSION = '3.11';
+our $VERSION = '3.11_01';
+our $XS_VERSION = $VERSION;
+$VERSION = eval $VERSION;
 
 our $recursion_limit;
 our $recursion_limit_hash;
