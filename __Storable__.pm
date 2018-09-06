@@ -105,7 +105,7 @@ XSLoader::load('Storable');
 # Determine whether locking is possible, but only when needed.
 #
 
-sub CAN_FLOCK; # TEMPLATE - replaced by Storable.pm.PL
+sub CAN_FLOCK; # TEMPLATE - replaced by Storable_pm.PL
 
 sub show_file_magic {
     print <<EOM;

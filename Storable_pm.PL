@@ -1,5 +1,6 @@
 use strict;
 use warnings;
+package Storable; # for regen/lib_cleanup
 
 use Config;
 
