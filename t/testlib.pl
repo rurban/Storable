@@ -1,7 +1,8 @@
 #!perl -w
 use strict;
+use vars '$file';
 
-our $file = "storable-testfile.$$";
+$file = "storable-testfile.$$";
 die "Temporary file '$file' already exists" if -e $file;
 
 END { while (-f $file) {unlink $file or die "Can't unlink '$file': $!" }}
@@ -11,7 +12,7 @@ use Storable qw (store retrieve freeze thaw nstore nfreeze);
 sub slurp {
   my $file = shift;
   local (*FH, $/);
-  open FH, "<", $file or die "Can't open '$file': $!";
+  open FH, '<', $file or die "Can't open '$file': $!";
   binmode FH;
   my $contents = <FH>;
   die "Can't read $file: $!" unless defined $contents;

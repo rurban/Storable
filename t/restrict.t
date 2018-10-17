@@ -134,7 +134,6 @@ SKIP: {
         my $hash2 = dclone($hash1);
 
         my $success;
-
         $success = eval { $hash2->{$_} = 'test' for @keys; 1 };
         my $err = $@;
         ok($success, "can store in all of the $n restricted slots")

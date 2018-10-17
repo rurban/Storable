@@ -4,7 +4,7 @@
  *
  *  Copyright (c) 1995-2000, Raphael Manfredi
  *  Copyright (c) 2016, 2017 cPanel Inc
- *  Copyright (c) 2017 Reini Urban
+ *  Copyright (c) 2017, 2018 Reini Urban
  *
  *  You may redistribute only under the same terms as Perl 5, as specified
  *  in the README file that comes with the distribution.
@@ -704,7 +704,7 @@ static stcxt_t *Context_ptr = NULL;
         STRLEN offset = mptr - mbase;                           \
         ASSERT(!cxt->membuf_ro, ("mbase is not read-only"));    \
         TRACEME(("** extending mbase from %ld to %ld bytes (wants %ld new)", \
-                 (long)msiz, nsz, (long)(x)));                  \
+                 (long)msiz, (long)nsz, (long)(x)));            \
         Renew(mbase, nsz, char);                                \
         msiz = nsz;                                             \
         mptr = mbase + offset;                                  \
@@ -3405,7 +3405,7 @@ static int get_regexp(pTHX_ stcxt_t *cxt, SV* sv, SV **re, SV **flags) {
     count = call_sv((SV*)cv, G_ARRAY);
     SPAGAIN;
     if (count < 2)
-      CROAK(("re::regexp_pattern returned only %d results", count));
+        CROAK(("re::regexp_pattern returned only %d results", (int)count));
     *flags = POPs;
     SvREFCNT_inc(*flags);
     *re = POPs;
@@ -3636,7 +3636,7 @@ static int store_hook(
     SV *ref;
     AV *av;
     SV **ary;
-    int count;			/* really len3 + 1 */
+    SSize_t count;		/* really len3 + 1 */
     unsigned char flags;
     char *pv;
     int i;
@@ -3728,7 +3728,7 @@ static int store_hook(
     SvREFCNT_dec(ref);			/* Reclaim temporary reference */
 
     count = AvFILLp(av) + 1;
-    TRACEME(("store_hook, array holds %d items", count));
+    TRACEME(("store_hook, array holds %ld items", (long)count));
 
     /*
      * If they return an empty list, it means they wish to ignore the
@@ -3962,8 +3962,8 @@ static int store_hook(
      */
 
     TRACEME(("SX_HOOK (recursed=%d) flags=0x%x "
-             "class=%" IVdf " len=%" IVdf " len2=%" IVdf " len3=%d",
-             recursed, flags, (IV)classnum, (IV)len, (IV)len2, count-1));
+             "class=%" IVdf " len=%" IVdf " len2=%" IVdf " len3=%ld",
+             recursed, flags, (IV)classnum, (IV)len, (IV)len2, (long)count-1));
 
     /* SX_HOOK <flags> [<extra>] */
     if (!recursed) {
@@ -6826,7 +6826,7 @@ static SV *retrieve_regexp(pTHX_ stcxt_t *cxt, const char *cname) {
     SPAGAIN;
 
     if (count != 1)
-        CROAK(("Bad count %d calling _make_re", count));
+        CROAK(("Bad count %d calling _make_re", (int)count));
 
     re_ref = POPs;
 

@@ -39,9 +39,7 @@ BEGIN { plan tests => 63 }
 use Storable qw(retrieve store nstore freeze nfreeze thaw dclone);
 use Safe;
 
-#$Storable::DEBUGME = 1;
-
-our ($freezed, $thawed, @obj, @res, $blessed_code);
+use vars qw($freezed $thawed @obj @res $blessed_code);
 
 $blessed_code = bless sub { "blessed" }, "Some::Package";
 { package Another::Package; sub foo { __PACKAGE__ } }
@@ -113,7 +111,8 @@ is($thawed->(), "JAPH");
 
 ######################################################################
 
-eval { $freezed = freeze $obj[4] };
+# $Storable::DEBUGME = 1;
+eval { $freezed = freeze $obj[4] }; # a XSUB
 like($@, qr/The result of B::Deparse::coderef2text was empty/);
 
 ######################################################################

@@ -18,7 +18,7 @@ sub BEGIN {
 
 
 use Storable qw(freeze thaw dclone);
-our ($debugging, $verbose);
+use vars qw($debugging $verbose);
 
 use Test::More tests => 8;
 
