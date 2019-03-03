@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 package Storable;
-our $VERSION = '3.12_02';
+our $VERSION = '3.12_03';
 
 use Config;
 use File::Basename qw(dirname);
@@ -37,7 +37,7 @@ print OUT <<'!FIRSTPART';
 #  Copyright (c) 1995-2001, Raphael Manfredi
 #  Copyright (c) 2002-2014 by the Perl 5 Porters
 #  Copyright (c) 2015-2016 cPanel Inc
-#  Copyright (c) 2017-2018 Reini Urban
+#  Copyright (c) 2017-2019 Reini Urban
 #
 #  You may redistribute only under the same terms as Perl 5, as specified
 #  in the README file that comes with the distribution.
@@ -1435,6 +1435,7 @@ Thank you to (in chronological order):
 	Reini Urban <rurban@cpan.org>
 	Todd Rinaldo <toddr@cpanel.net>
 	Aaron Crane <arc@cpan.org>
+        Tony Cook <tony@develop-help.com>
 
 for their bug reports, suggestions and contributions.
 

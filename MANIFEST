@@ -11,6 +11,7 @@ hints/hpux.pl		    Hint file to drop gcc to -O1
 hints/linux.pl		    Hint file to drop gcc to -O2
 ppport.h		    Compatibility header
 stacksize                   compute stacksize
+stacksize_in.h              stacksize.h template
 t/HAS_ATTACH.pm		    For auto-requiring of modules for STORABLE_attach
 t/HAS_HOOK.pm		    For auto-requiring of modules for STORABLE_thaw
 t/HAS_OVERLOAD.pm	    For auto-requiring of mdoules for overload
