@@ -3,9 +3,11 @@ hints/gnukfreebsd.pl	    Hint file to drop gcc to -O2
 hints/gnuknetbsd.pl	    Hint file to drop gcc to -O2
 hints/hpux.pl		    Hint file to drop gcc to -O1
 hints/linux.pl		    Hint file to drop gcc to -O2
+LICENSE
 Makefile.PL		    Generic Makefile template
 MANIFEST.SKIP		    
 MANIFEST		    This shipping list
+META.yml                    Module meta-data (added by MakeMaker)
 ppport.h		    Compatibility header
 README			    Read this first
 stacksize                   compute stacksize
@@ -66,6 +68,7 @@ t/tied.t		    See if Storable works
 t/utf8hash.t		    See if Storable works
 t/utf8.t		    See if Storable works
 t/weak.t		    Can Storable store weakrefs
+t/z_kwalitee.t	            Author test
 t/z_manifest.t	            Author test
 t/z_meta.t	            Author test
 t/z_perl_minimum_version.t  Author test

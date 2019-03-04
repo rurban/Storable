@@ -3,7 +3,7 @@
         * SECURITY: fix p5p-introduced user stacklimits. Must not be higher
         than the probed hard limits, when overridden by user code or data,
         via hooks or even pst data. [cperl #393]
-        * Add some author tests as t/z_*.t
+        * Add some author tests as t/z_*.t, add LICENSE and MANIFEST.SKIP
 
 2018-10-17 rurban
     Version 3.12_02

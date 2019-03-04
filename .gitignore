@@ -19,3 +19,5 @@ Storable-*.tar.gz
 /.git-rr-cache
 /log.*
 /lib/Storable/Limit.pm
+/t/malice_dbg.t
+/t/z_pod-coverage.t.not
