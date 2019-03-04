@@ -32,20 +32,19 @@ WriteMakefile(
     DISTNAME        => "Storable",
     PL_FILES        => { }, # prevent default behaviour
     PM              => $pm,
-    PREREQ_PM       => { XSLoader => 0 },
+    PREREQ_PM       => { XSLoader => 0, perl => '5.005_03' },
     INSTALLDIRS     => ($] >= 5.007 && $] < 5.012) ? 'perl' : 'site',
     VERSION_FROM    => 'Storable_pm.PL',
     ABSTRACT_FROM   => 'Storable_pm.PL',
     ($ExtUtils::MakeMaker::VERSION > 6.45 ?
      (META_MERGE    => { resources =>
-                          { bugtracker => 'http://rt.perl.org/perlbug/' },
-                            provides    => {
-                                'Storable'  => {
-                                    file        => 'Storable_pm.PL',
-                                    version     => MM->parse_version('Storable_pm.PL'),
-                                },
-                            },
-
+                         { bugtracker => 'http://rt.perl.org/perlbug/',
+                           repository => 'https://github.com/rurban/Storable/',
+                         },
+                         provides    => {
+                           'Storable'  => {
+                             file        => 'Storable_pm.PL',
+                             version     => MM->parse_version('Storable_pm.PL'),
                            },
     ) : ()),
     dist            => { SUFFIX => 'gz', COMPRESS => 'gzip -f' },

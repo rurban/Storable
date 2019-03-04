@@ -9,6 +9,12 @@ hints/gnukfreebsd.pl	    Hint file to drop gcc to -O2
 hints/gnuknetbsd.pl	    Hint file to drop gcc to -O2
 hints/hpux.pl		    Hint file to drop gcc to -O1
 hints/linux.pl		    Hint file to drop gcc to -O2
+LICENSE
+Makefile.PL		    Generic Makefile template
+MANIFEST.SKIP		    
+MANIFEST		    This shipping list
+META.json                   Module meta-data (added by MakeMaker)
+META.yml                    Module meta-data (added by MakeMaker)
 ppport.h		    Compatibility header
 stacksize                   compute stacksize
 stacksize_in.h              stacksize.h template
