@@ -1,48 +1,47 @@
 ChangeLog		    Changes since baseline
-MANIFEST		    This shipping list
-META.yml                                 Module meta-data (added by MakeMaker)
-Makefile.PL		    Generic Makefile template
-README			    Read this first
-Storable.xs		    The C side of Storable
-Storable_pm.PL		    The perl side of Storable
 hints/gnukfreebsd.pl	    Hint file to drop gcc to -O2
 hints/gnuknetbsd.pl	    Hint file to drop gcc to -O2
 hints/hpux.pl		    Hint file to drop gcc to -O1
 hints/linux.pl		    Hint file to drop gcc to -O2
-LICENSE
 Makefile.PL		    Generic Makefile template
 MANIFEST.SKIP		    
 MANIFEST		    This shipping list
-META.json                   Module meta-data (added by MakeMaker)
-META.yml                    Module meta-data (added by MakeMaker)
 ppport.h		    Compatibility header
+README			    Read this first
 stacksize                   compute stacksize
 stacksize_in.h              stacksize.h template
-t/HAS_ATTACH.pm		    For auto-requiring of modules for STORABLE_attach
-t/HAS_HOOK.pm		    For auto-requiring of modules for STORABLE_thaw
-t/HAS_OVERLOAD.pm	    For auto-requiring of mdoules for overload
+Storable_pm.PL		    The perl side of Storable
+Storable.xs		    The C side of Storable
 t/attach_errors.t	    Trigger and test STORABLE_attach errors
 t/attach_singleton.t	    Test STORABLE_attach for the Singleton pattern
+t/attach.t
 t/blessed.t		    See if Storable works
 t/canonical.t		    See if Storable works
 t/circular_hook.t	    Test thaw hook called depth-first for circular refs
 t/code.t		    Test (de)serialization of code references
+t/compat01.t		    See if Storable is compatible with v0.1 and v0.4 dumps
+t/compat06.t		    See if Storable works
 t/compat/Test/Builder.pm    For testing the CPAN release on pre 5.6.2
 t/compat/Test/More.pm	    For testing the CPAN release on pre 5.6.2
 t/compat/Test/Simple.pm	    For testing the CPAN release on pre 5.6.2
-t/compat01.t		    See if Storable is compatible with v0.1 and v0.4 dumps
-t/compat06.t		    See if Storable works
 t/croak.t		    See if Storable works
 t/dclone.t		    See if Storable works
+t/destroy.t
 t/downgrade.t		    See if Storable works
 t/file_magic.t              See if file_magic function works
+t/flags.t
 t/forgive.t		    See if Storable works
 t/freeze.t		    See if Storable works
+t/HAS_ATTACH.pm		    For auto-requiring of modules for STORABLE_attach
+t/HAS_HOOK.pm		    For auto-requiring of modules for STORABLE_thaw
+t/HAS_OVERLOAD.pm	    For auto-requiring of mdoules for overload
+t/hugeids.t
+t/huge.t
 t/integer.t		    For "use integer" testing
 t/interwork56.t		    Test combatibility kludge for 64bit data under 5.6.x
 t/just_plain_nasty.t	    Corner case corner.
-t/leaks.t		    Leak tests with Test::LeakTrace
 t/leaks_refcnt.t	    Leak tests with Devel::Refcount
+t/leaks.t		    Leak tests with Test::LeakTrace
 t/lock.t		    See if Storable works
 t/make_56_interwork.pl	    Make test data for interwork56.t
 t/make_downgrade.pl	    Make test data for downgrade.t
@@ -50,17 +49,26 @@ t/make_overload.pl	    Make test data for overload.t
 t/malice.t		    See if Storable copes with corrupt files
 t/overload.t		    See if Storable works
 t/recurse.t		    See if Storable works
+t/regexp.t
 t/restrict.t		    See if Storable works
 t/retrieve.t		    See if Storable works
+t/robust.t
 t/sig_die.t		    See if Storable works
 t/st-dump.pl		    helper routines for tests
 t/store.t		    See if Storable works
 t/testlib.pl		    more helper routines for tests
 t/threads.t                 See if Storable works under ithreads
-t/tied.t		    See if Storable works
 t/tied_hook.t		    See if Storable works
 t/tied_items.t		    See if Storable works
 t/tied_reify.t		    See if retrieve_tied_array works
-t/utf8.t		    See if Storable works
+t/tied_store.t
+t/tied.t		    See if Storable works
 t/utf8hash.t		    See if Storable works
+t/utf8.t		    See if Storable works
 t/weak.t		    Can Storable store weakrefs
+t/z_manifest.t	            Author test
+t/z_meta.t	            Author test
+t/z_perl_minimum_version.t  Author test
+t/z_pod-spelling.t	    Author test
+t/z_pod-spell-mistakes.t    Author test
+t/z_pod.t	            Author test
