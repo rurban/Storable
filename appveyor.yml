@@ -9,9 +9,12 @@ install:
   - cd C:\projects\%APPVEYOR_PROJECT_NAME%
 
 build_script:
-  - cpan Devel::Refcount
-  - perl Makefile.PL
-  - dmake
+  #- ppm install dmake
+  #- perl Makefile.PL MAKE=dmake
+  - perl Makefile.PL MAKE=gmake
+  - gmake
 
 test_script:
-  - dmake test TEST_VERBOSE=1
+  - cpanm -n Test::Kwalitee Test::CheckManifest Test::CPAN::Meta Pod::Spell::CommonMistakes Test::Spelling Test::Pod Devel::Refcount
+  - set STORABLE_NOISY=1
+  - gmake test TEST_VERBOSE=1

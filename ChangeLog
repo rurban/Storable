@@ -3,6 +3,12 @@
         * SECURITY: fix p5p-introduced user stacklimits. Must not be higher
         than the probed hard limits, when overridden by user code or data,
         via hooks or even pst data. [cperl #393]
+        add t/malice.t
+        Don't use any p5p provided Storable <= 3.12. They are all insecure and
+        refuse to accept bugreports and fixes.
+        install it with `cpan RURBAN/Storable-3.12_03.tar.gz`
+        * Add hard_stack_depth() and hard_stack_depth_hash() functions,
+        returning the hard limits.
         * Add some author tests as t/z_*.t, add LICENSE and MANIFEST.SKIP
 
 2018-10-17 rurban

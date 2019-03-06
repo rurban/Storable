@@ -23,7 +23,7 @@ provides:
     version: 3.12_03
 requires:
   XSLoader: '0'
-  perl: 5.005_03
+  perl: '5.004'
 resources:
   bugtracker: http://rt.perl.org/perlbug/
   repository: https://github.com/rurban/Storable/

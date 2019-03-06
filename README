@@ -22,6 +22,12 @@
 | We thank Raphael Manfredi for providing us with this very useful module.
 +=======================================================================
 
++=======================================================================
+| Don't use any p5p provided Storable <= 3.12. They are all insecure and
+| the upstream maintainers p5p refuse to accept bugreports and fixes.
+| Install it with `cpan RURBAN/Storable-3.12_03.tar.gz`
++=======================================================================
+
 The Storable extension brings persistence to your data.
 
 You may recursively store to disk any data structure, no matter how

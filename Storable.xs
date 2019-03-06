@@ -1723,8 +1723,8 @@ static void init_store_context(pTHX_
 
     cxt->hook_seen = newAV(); /* Lists SVs returned by STORABLE_freeze */
 
-    cxt->max_recur_depth = SvIV(get_sv("Storable::recursion_limit", GV_ADD));
-    cxt->max_recur_depth_hash = SvIV(get_sv("Storable::recursion_limit_hash", GV_ADD));
+    cxt->max_recur_depth = SvIV(get_svs("Storable::recursion_limit", GV_ADD));
+    cxt->max_recur_depth_hash = SvIV(get_svs("Storable::recursion_limit_hash", GV_ADD));
     check_limit_init(aTHX_ cxt);
 }
 
@@ -1871,8 +1871,8 @@ static void init_retrieve_context(pTHX_
     cxt->accept_future_minor = -1;/* Fetched from perl if needed */
     cxt->in_retrieve_overloaded = 0;
 
-    cxt->max_recur_depth = SvIV(get_sv("Storable::recursion_limit", GV_ADD));
-    cxt->max_recur_depth_hash = SvIV(get_sv("Storable::recursion_limit_hash", GV_ADD));
+    cxt->max_recur_depth = SvIV(get_svs("Storable::recursion_limit", GV_ADD));
+    cxt->max_recur_depth_hash = SvIV(get_svs("Storable::recursion_limit_hash", GV_ADD));
     check_limit_init(aTHX_ cxt);
 }
 
@@ -7933,15 +7933,37 @@ CODE:
 
 
 IV
+hard_stack_depth()
+CODE:
+#ifdef MAX_RECUR_DEPTH
+    RETVAL = MAX_RECUR_DEPTH;
+#else
+    RETVAL = -1;
+#endif
+OUTPUT:
+    RETVAL
+
+IV
+hard_stack_depth_hash()
+CODE:
+#ifdef MAX_RECUR_DEPTH_HASH
+    RETVAL = MAX_RECUR_DEPTH_HASH;
+#else
+    RETVAL = -1;
+#endif
+OUTPUT:
+    RETVAL
+
+IV
 stack_depth()
 CODE:
-    RETVAL = SvIV(get_sv("Storable::recursion_limit", GV_ADD));
+    RETVAL = SvIV(get_svs("Storable::recursion_limit", GV_ADD));
 OUTPUT:
     RETVAL
 
 IV
 stack_depth_hash()
 CODE:
-    RETVAL = SvIV(get_sv("Storable::recursion_limit_hash", GV_ADD));
+    RETVAL = SvIV(get_svs("Storable::recursion_limit_hash", GV_ADD));
 OUTPUT:
     RETVAL

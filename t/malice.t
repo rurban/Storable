@@ -37,7 +37,12 @@ $major = 2;
 $minor = 11;
 $minor_write = $] >= 5.019 ? 11 : $] > 5.008 ? 9 : $] > 5.005_50 ? 8 : 4;
 
-use Test::More 0.50;
+sub note;
+use Test::More;
+if ($Test::More::VERSION lt '0.82') {
+  plan skip_all => 'require Test::More 0.82 for note()';
+  exit $Test::More::VERSION;
+}
 
 # If it's 5.7.3 or later the hash will be stored with flags, which is
 # 2 extra bytes. There are 2 * 2 * 2 tests per byte in the body and header
@@ -314,11 +319,18 @@ is($hash->{empty}, "", "got empty element");
 # Protect against PST changing Storable recursion limits [cperl #393]
 # via hooks or class, and overwriting other globals or functions.
 
+my $over_recursion_limit = $Storable::recursion_limit * 2;
+my $hard_recursion_limit = Storable::hard_stack_depth();
+if ($over_recursion_limit < $hard_recursion_limit) {
+  note "very large hard_stack_depth = $hard_recursion_limit";
+  $over_recursion_limit = $hard_recursion_limit + 100;
+}
+
 package Bypass_Limit_freeze;
 
 sub STORABLE_freeze {
   #my $self = shift;
-  $Storable::recursion_limit *= 2;
+  $Storable::recursion_limit = $over_recursion_limit;
 }
 
 package Bypass_Limit_thaw;
@@ -328,7 +340,7 @@ sub STORABLE_freeze { shift }
 sub STORABLE_thaw {
   #my $self = shift;
   #my $cloning = shift;
-  $Storable::recursion_limit *= 2;
+  $Storable::recursion_limit = $over_recursion_limit;
 }
 
 package main;
@@ -343,9 +355,15 @@ eval { thaw ($f) };
 like ($@, qr/^Illegal retrieve from class Storable/,
   'Catch illegal retrieve from class Storable');
 
+SKIP: {
+
+if ($hard_recursion_limit < 0) {
+  skip "empty stacksize.h", 3
+}
+
 my $old_limit = $Storable::recursion_limit;
 note "recursion_limit = $Storable::recursion_limit";
-$Storable::recursion_limit *= 2;
+$Storable::recursion_limit = $over_recursion_limit;
 #$Storable::DEBUGME = 7;
 eval { freeze (bless []) };
 like ($@, qr/^Illegal \$Storable::recursion_limit/,
@@ -382,3 +400,5 @@ note "recursion_limit = $Storable::recursion_limit";
 #like ($@, qr/^hook illegally changed \$Storable::recursion_limit/,
 #      'Catch thawed code illegally changed recursion_limit');
 #note "recursion_limit = $Storable::recursion_limit";
+
+}

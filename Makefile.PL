@@ -32,7 +32,7 @@ WriteMakefile(
     DISTNAME        => "Storable",
     PL_FILES        => { }, # prevent default behaviour
     PM              => $pm,
-    PREREQ_PM       => { XSLoader => 0, perl => '5.005_03' },
+    PREREQ_PM       => { XSLoader => 0, perl => '5.004' },
     INSTALLDIRS     => ($] >= 5.007 && $] < 5.012) ? 'perl' : 'site',
     VERSION_FROM    => 'Storable_pm.PL',
     ABSTRACT_FROM   => 'Storable_pm.PL',
@@ -41,13 +41,27 @@ WriteMakefile(
                          { bugtracker => 'http://rt.perl.org/perlbug/',
                            repository => 'https://github.com/rurban/Storable/',
                          },
-                         provides    => {
+                         provides => {
                            'Storable'  => {
                              file        => 'Storable_pm.PL',
                              version     => MM->parse_version('Storable_pm.PL'),
                            },
                          },
+                         recommends => {
+                           'Test::Kwalitee'      => '1.00',
+                           'Test::CheckManifest' => '1.42',
+                           'Test::CPAN::Meta'    => 0,
+                           'Pod::Spell::CommonMistakes' => 0,
+                           'Test::Spelling'      => 0,
+                           'Test::Pod'           => 0,
+                           'Devel::Refcount'     => 0,
+                         }
       },
+     ) : ()),
+    ($ExtUtils::MakeMaker::VERSION >= 6.64 ?
+     (TEST_REQUIRES => {
+        'Test::More'          => '0.82', # for t/malice.t using note()
+      }
      ) : ()),
     dist            => { SUFFIX => 'gz', COMPRESS => 'gzip -f' },
     clean           => { FILES => 'Storable-* Storable.pm stacksize.h lib' },
