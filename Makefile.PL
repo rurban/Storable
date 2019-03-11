@@ -38,7 +38,7 @@ WriteMakefile(
     ABSTRACT_FROM   => 'Storable_pm.PL',
     ($ExtUtils::MakeMaker::VERSION > 6.45 ?
      (META_MERGE    => { resources =>
-                         { bugtracker => 'http://rt.perl.org/perlbug/',
+                         { bugtracker => 'https://github.com/rurban/Storable/issues',
                            repository => 'https://github.com/rurban/Storable/',
                          },
                          provides => {
@@ -95,43 +95,34 @@ EOM
 package MY;
 use Config;
 
-# FORCE finish of INST_DYNAMIC, avoid loading the old Storable (failed XS_VERSION check)
-sub linkext {
-    my $s = shift->SUPER::linkext(@_);
-    $s =~ s|( :: .*)| $1 FORCE stacksize|;
-    $s
-}
-
 sub depend {
     my $extra_deps = "";
     my $options = "";
-    if ($ENV{PERL_CORE}) {
-        $options = "--core";
-    }
-    else {
-        # blib.pm needs arch/lib
-        $extra_deps = ' Storable.pm';
-    }
     my $mkblib = '';
     my $linktype = uc($_[0]->{LINKTYPE});
-    my $s = "LDFULLPERLRUNINST = \$(FULLPERLRUNINST)\n";
+    my $s;
     # EUMM bug for core builds, missing ldlibpthname
     if ($ENV{PERL_CORE}) {
-      if ($Config{useshrplib}) {
-        my $ldlibpthname = $Config{ldlibpthname};
-        if ($ldlibpthname && $ENV{$ldlibpthname}) {
-          $s = "LDFULLPERLRUNINST = $ldlibpthname=$ENV{$ldlibpthname}" .
+      $options = "--core";
+      # $extra_deps = ' $(PERLEXE)' if $^O eq 'MSWin32';
+      my $ldlibpthname = $Config{ldlibpthname};
+      if ($Config{useshrplib} && $ldlibpthname && $ENV{$ldlibpthname}) {
+          $s = "LDPERLRUNINST = $ldlibpthname=$ENV{$ldlibpthname}" .
             " \$(FULLPERLRUNINST)\n";
-        }
+      } else {
+        $s = "LDPERLRUNINST = \$(FULLPERLRUNINST)\n";
       }
     } else {
+      # blib.pm needs arch/lib
+      $extra_deps = ' Storable.pm';
+      $s = "LDPERLRUNINST = \$(FULLPERLRUNINST)\n";
       $mkblib = "-\$(MKPATH) \$(INST_ARCHLIB)\n\t" .
         "-\$(CHMOD) \$(PERM_RW) \$(INST_ARCHLIB)/Storable.pm\n\t" .
         "\$(CP) Storable.pm \$(INST_ARCHLIB)/Storable.pm\n\t";
     }
     $s . "
 stacksize: Makefile \$(INST_$linktype)$extra_deps
-	$mkblib\$(LDFULLPERLRUNINST) stacksize $options
+	$mkblib\$(LDPERLRUNINST) stacksize $options
 
 Storable\$(OBJ_EXT) Storable.c: stacksize.h
 
