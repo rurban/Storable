@@ -1,3 +1,7 @@
+2019-04-?? rurban
+    Version 3.13_04
+        * (perl #133326) fix and clarify handling of recurs_sv (Tony Cook)
+
 2019-03-11 rurban
     Version 3.12_04
         * Fix stacksize probe, and remove Win32 spawn.
